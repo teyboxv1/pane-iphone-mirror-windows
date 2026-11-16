@@ -57,8 +57,8 @@ def _patch_bonjour() -> None:
                 sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, struct.pack("=4s4s", group, socket.inet_aton(ip)))
         return transport, sock
 
-    async def send_query_all(transports, pkt):
-        sent = await original_send(transports, pkt)
+    async def send_query_all(transports, pkt, *args, **kwargs):
+        sent = await original_send(transports, pkt, *args, **kwargs)
         for _, sock in transports:
             if sock.family != socket.AF_INET:
                 continue
