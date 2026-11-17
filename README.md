@@ -1,137 +1,133 @@
 <p align="center">
-  <img src="handset/web/logo.svg" width="120" alt="Pane logo - iPhone screen mirroring for Windows">
+  <img src="handset/web/logo.svg" width="128" alt="Pane">
 </p>
 
-<h1 align="center">Pane — Mirror and Control Your iPhone from a Windows PC</h1>
+<h1 align="center">Pane</h1>
 
 <p align="center">
-  <b>Free, open-source iPhone screen mirroring and remote control for Windows 10 &amp; 11.</b><br>
-  See your iPhone screen live on your PC, tap and swipe with the mouse, and type with your computer keyboard —<br>
-  over a USB cable <i>or</i> wirelessly over Wi-Fi. No jailbreak, no Mac, no subscription.
+  <b>Mirror and control an iPhone from Windows.</b>
 </p>
 
 <p align="center">
-  <a href="../../releases/latest"><b>⬇ Download Pane.exe for Windows</b></a>
-  ·
-  <a href="#features">Features</a>
-  ·
-  <a href="#quick-start">Quick start</a>
-  ·
-  <a href="#faq">FAQ</a>
+  <a href="https://github.com/teyboxv1/pane-iphone-mirror-windows/releases/latest"><img src="https://img.shields.io/badge/download-Pane.exe-0a84ff" alt="Download Pane.exe"></a>
+  <img src="https://img.shields.io/badge/platform-Windows-555555" alt="Windows">
+  <img src="https://img.shields.io/badge/license-GPL--3.0-555555" alt="GPL-3.0">
 </p>
 
----
+This application mirrors an iPhone or iPad on a Windows PC and lets you use it with the computer's mouse and keyboard. It does not require a jailbreak, a Mac, or an app installed on the phone. Video and input stay on your own computer.
 
-**Pane** is like [scrcpy](https://github.com/Genymobile/scrcpy), but for **iPhone on Windows**. It streams the iPhone display to your desktop in real time and sends your mouse clicks, swipes and key presses back to the phone, so you can use iOS apps, reply to messages, play games, record demos or present your phone screen from your laptop or PC.
+It focuses on:
 
-It is an alternative to paid tools such as ApowerMirror, LonelyScreen, Reflector, AirServer, iMyFone MirrorTo and Phone Link for iPhone — but free, private (everything stays on your own computer and network), and with full touch control instead of view-only AirPlay.
+* **lightness** — one portable `Pane.exe`, no installer and no account
+* **picture** — the iPhone display as a live HEVC stream, decoded in the browser
+* **control** — mouse taps and swipes, keyboard typing, and the hardware buttons
+* **privacy** — no cloud, no telemetry, no internet account
+* **freedom** — free and open source
 
-## Features
+Its features include:
 
-- 📱 **Live iPhone screen mirroring on Windows**: low-latency HEVC (H.265) video decoded in hardware.
-- 🖱️ **Control the iPhone with your mouse**: tap, long-press, drag and swipe directly on the mirrored screen.
-- ⌨️ **Type on your iPhone with the PC keyboard**: real keystrokes, including Ctrl+C / Ctrl+V / Ctrl+A / Ctrl+Z mapped to ⌘ shortcuts.
-- 📶 **Wireless mirroring over Wi-Fi**: pair once over USB, then go cable-free on the same network.
-- 🔌 **USB cable mode**: the most stable, lowest-latency connection.
-- 🏠 **Hardware buttons & gestures**: Home, App Switcher, Lock/Power, Siri, Volume up/down, Mute, Notification Center, Control Center, back/forward swipes.
-- 🖥️ **Realistic iPhone frame** with fit-to-window, zoom, rotate and **full-screen touch mode**.
-- 🔁 **One-click restart** if the stream ever freezes.
-- 🪟 **Single portable `Pane.exe`**: no Python, no installer, no account.
-- 🔒 **Private by design**: no cloud, no telemetry; it only talks to your iPhone.
+* USB mirroring
+* Wi-Fi mirroring after a one-time cable pairing
+* tap, long-press, drag, and swipe
+* keyboard input, including Ctrl+C / Ctrl+V / Ctrl+A / Ctrl+Z as the matching shortcuts
+* Home, App Switcher, Lock, Siri, volume, mute, Notification Center, and Control Center
+* fit, zoom, rotate, and full-screen touch view
+* restart if the picture stalls
 
-## Quick start
+## Prerequisites
 
-1. **Download** `Pane.exe` from the [latest release](../../releases/latest).
-2. Install Apple's USB driver by installing **[Apple Devices](https://apps.microsoft.com/detail/9np83lwlpz9k)** (or iTunes) from the Microsoft Store.
-3. Plug the iPhone into the PC, unlock it and tap **Trust This Computer**.
-4. Turn on **Developer Mode** on the iPhone: *Settings → Privacy & Security → Developer Mode → On* (the iPhone restarts).
-   If you don't see the option, connect to Pane once and it will appear.
-5. Run **Pane.exe** and click **Start mirroring**.
+The iPhone or iPad must run **iOS / iPadOS 27 or newer**. That is the minimum for a picture.
 
-### Go wireless (Wi-Fi)
+**Developer Mode** must be on: *Settings → Privacy & Security → Developer Mode*.
 
-1. While the iPhone is connected by cable, switch Pane to **Wi-Fi** and click **Set up Wi-Fi** (one-time pairing).
-2. Unplug the cable. Keep the PC and iPhone on the **same Wi-Fi network** and the iPhone unlocked.
-3. Click **Start mirroring**.
+On **iOS 26 and older** the phone can still connect, and touch or keyboard input may work, but Apple does not send video frames. The screen stays black. Update to iOS 27 or newer for a picture.
 
-> Tip: if the iPhone isn't found over Wi-Fi, set the Windows network profile to **Private** and make sure the router doesn't isolate wireless clients.
+You also need:
 
-## Controls
+* Windows 10 or Windows 11 (64-bit)
+* [Apple Devices](https://apps.microsoft.com/detail/9np83lwlpz9k) (or iTunes) from the Microsoft Store, for the USB driver
+* Google Chrome or Microsoft Edge, which Pane uses as its window
 
-| Action on PC | Result on iPhone |
-| --- | --- |
-| Left click / drag | Tap / swipe |
-| Swipe up from the bottom edge | Go Home (pause before releasing for the App Switcher) |
-| Right click | Home |
-| Keyboard | Types into the focused text field |
-| Ctrl + C / V / X / A / Z | Copy / Paste / Cut / Select all / Undo |
-| Side buttons on the frame | Lock, Volume up/down, Mute |
+Unlock the iPhone and tap **Trust This Computer** the first time you plug it in.
 
-## Requirements
+## Get the app
 
-- Windows 10 or Windows 11 (64-bit)
-- Google Chrome or Microsoft Edge (used as the app window)
-- iPhone or iPad running **iOS / iPadOS 27 or newer** with Developer Mode enabled. This is the minimum for a picture. iOS 26 and older can connect, but Apple does not send video frames, so the screen stays black.
-- Apple Devices app or iTunes (for the USB driver)
+**Windows**
 
-## Run from source
+Download [`Pane.exe`](https://github.com/teyboxv1/pane-iphone-mirror-windows/releases/latest) from the latest release and run it. No Python install is required for the executable.
+
+**From source**
 
 ```powershell
 git clone https://github.com/teyboxv1/pane-iphone-mirror-windows.git
 cd pane-iphone-mirror-windows
 pip install -r requirements.txt
-python -m handset.server      # then open http://127.0.0.1:8765
+python -m handset.server
 ```
 
-### Build the Windows EXE
+Open http://127.0.0.1:8765
+
+**Build `Pane.exe`**
 
 ```powershell
 pip install pyinstaller pillow
-powershell -ExecutionPolicy Bypass -File packaging\build.ps1   # -> dist\Pane.exe
+powershell -ExecutionPolicy Bypass -File packaging\build.ps1
 ```
+
+The executable is written to `dist\Pane.exe`.
+
+## Must-know tips
+
+* Plug in the cable and choose **Cable** for the first connection. That is the stable path.
+* Choose **Wi-Fi** only after **Set up Wi-Fi**, with the cable unplugged, the phone unlocked, and both devices on the same private network.
+* A VPN, or a router that isolates wireless clients, hides the iPhone from Wi-Fi discovery. USB does not use that discovery.
+* Right-click on the mirror sends Home.
+* Drag up from the bottom edge for Home. Pause before release for the App Switcher.
+* Quit Camera, Voice Memos, or any app using the microphone before you start. iOS will not stream the display while one of those is in front.
+
+## Controls
+
+| On the PC | On the iPhone |
+| --- | --- |
+| Left click / drag | Tap / swipe |
+| Right click | Home |
+| Keyboard | Types into the focused field |
+| Ctrl+C / V / X / A / Z | Copy / Paste / Cut / Select all / Undo |
+| Side buttons on the frame | Lock, volume, mute |
 
 ## How it works
 
-Pane uses [pymobiledevice3](https://github.com/doronz88/pymobiledevice3) to open a secure RemoteXPC / RSD tunnel to the iPhone (over USB, or over Wi-Fi via Bonjour remote pairing), starts the iOS screen-capture service on **iOS 27 or newer**, and streams the HEVC video to a local web UI that decodes it with WebCodecs. Touches, buttons and keystrokes are sent back as HID events. Everything runs locally on `127.0.0.1`.
+Pane uses [pymobiledevice3](https://github.com/doronz88/pymobiledevice3) to open the same kind of tunnel Xcode uses, over USB or over Wi-Fi after pairing. On iOS 27 or newer the phone sends the display as HEVC. Chrome or Edge decodes it. Touches, buttons, and keystrokes go back as HID events. Everything listens on `127.0.0.1`.
 
 ```
-iPhone ──USB / Wi-Fi tunnel──▶ Pane server (Python) ──localhost──▶ App window (WebCodecs + HID input)
+iPhone ── USB or Wi-Fi ──▶ Pane ──▶ window (video + input)
 ```
 
 ## FAQ
 
-**Can I mirror my iPhone to Windows for free?**
-Yes. Pane is free and open source (GPL-3.0).
+**Does it work on iOS 26?**
+No picture. iOS 27 is the minimum for video. Older versions can connect and may accept input, but they do not send frames.
 
-**Can I control my iPhone from my PC, not just view it?**
-Yes. Unlike AirPlay receivers, Pane sends real touch, button and keyboard input to the iPhone.
+**Do I need a jailbreak or a Mac?**
+No.
 
 **Does it work without a cable?**
-Yes. After a one-time USB pairing, Pane mirrors and controls the iPhone over Wi-Fi on the same network.
+Yes, after one USB pairing, on the same Wi-Fi, with the iPhone unlocked.
 
-**Do I need to jailbreak my iPhone?**
-No. Pane uses Apple's built-in developer services. You only need Developer Mode turned on.
+**Is anything uploaded?**
+No. The video and input stay between the iPhone and the PC.
 
-**Do I need a Mac or Xcode?**
-No. Everything runs on Windows.
+**Windows SmartScreen warns about `Pane.exe`.**
+The file is not code-signed yet. Choose *More info → Run anyway*, or build it from source.
 
-**Why does it need Developer Mode?**
-iOS only exposes screen streaming and input injection through its developer services, which require Developer Mode. You can turn it off again at any time.
+## Contact
 
-**Why is the screen black on iOS 26 or older?**
-The minimum for live video is **iOS 27**. On older versions Pane may still connect and send touch or keyboard input, but the phone does not send picture frames. That is an iOS limitation. Update the iPhone to iOS 27 or newer for a picture.
-
-**Windows SmartScreen warns about Pane.exe — is it safe?**
-The executable isn't code-signed yet, so Windows shows a warning for new downloads. Click *More info → Run anyway*, or build it yourself from source.
-
-**Is my data sent anywhere?**
-No. The video and input stay between your iPhone and your PC.
-
-## Keywords
-
-iPhone screen mirroring Windows · mirror iPhone to PC · control iPhone from PC · iPhone remote control Windows 11 · iOS screen mirror Windows · scrcpy for iPhone · scrcpy iOS alternative · iPhone to laptop screen share · use iPhone on computer · type on iPhone with PC keyboard · wireless iPhone mirroring Wi-Fi · USB iPhone mirror · free ApowerMirror alternative · open source iPhone mirroring · no jailbreak
+Open a [GitHub issue](https://github.com/teyboxv1/pane-iphone-mirror-windows/issues) for bug reports and questions. For a black screen, check the iOS version first.
 
 ## License
 
+Copyright (C) Pane contributors
+
 Pane is licensed under the [GNU General Public License v3.0](LICENSE).
-Not affiliated with or endorsed by Apple Inc. iPhone, iOS and AirPlay are trademarks of Apple Inc.
+
+Not affiliated with or endorsed by Apple Inc. iPhone, iPad, iOS, and iPadOS are trademarks of Apple Inc.
