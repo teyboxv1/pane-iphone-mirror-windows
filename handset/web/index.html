@@ -10,7 +10,7 @@
 </head>
 <body>
   <div class="app">
-    <header class="bar">
+    <header class="bar bar-drag">
       <div class="brand">
         <img class="brand-mark" src="/logo.svg" alt="" aria-hidden="true">
         <div>
@@ -19,14 +19,44 @@
         </div>
       </div>
       <nav class="bar-actions">
+        <button type="button" class="ghost" id="toggle-compact" title="Compact window layout">Compact</button>
+        <button type="button" class="ghost" id="open-audio" title="AirPlay audio to PC">Audio</button>
         <button type="button" class="ghost" id="toggle-guide" aria-expanded="false" aria-controls="run-guide">How to run</button>
         <button type="button" class="ghost" id="refresh" title="Refresh connection">Refresh</button>
+        <button type="button" class="ghost ghost-icon" id="win-min" title="Minimize window">−</button>
+        <button type="button" class="ghost ghost-icon" id="win-close" title="Close window">✕</button>
       </nav>
     </header>
 
     <main class="workspace" id="workspace">
       <div class="mirror-split">
         <section class="mirror-pane" aria-label="iPhone screen">
+          <div class="compact-bar bar-drag" id="compact-bar" hidden>
+            <div class="compact-traffic">
+              <button type="button" class="traffic-dot dot-red" id="compact-close" title="Exit compact layout"></button>
+              <button type="button" class="traffic-dot dot-yellow" id="compact-min" title="Minimize window"></button>
+              <button type="button" class="traffic-dot dot-green" id="compact-expand" title="Phone full screen"></button>
+            </div>
+            <span class="compact-title" id="compact-device-name">iPhone</span>
+            <button type="button" class="compact-audio-btn" id="compact-audio" title="AirPlay audio to PC">🔊</button>
+          </div>
+
+          <div class="audio-popup" id="audio-popup" hidden>
+            <div class="audio-popup-content">
+              <div class="audio-popup-header">
+                <span class="audio-popup-title">Play audio on your PC</span>
+                <button type="button" class="audio-popup-close" id="audio-popup-close" aria-label="Close">✕</button>
+              </div>
+              <div class="audio-popup-body">
+                <p class="audio-step"><span class="step-num">1</span> Open <strong>Control Center</strong> on the iPhone.</p>
+                <p class="audio-step"><span class="step-num">2</span> Tap the <strong>AirPlay</strong> icon on the media card.</p>
+                <p class="audio-step"><span class="step-num">3</span> Choose <strong>Pane Audio</strong> as the output.</p>
+              </div>
+              <p class="audio-popup-note fine" id="audio-popup-note" hidden></p>
+              <button type="button" class="primary audio-popup-ok" id="audio-popup-ok">Got it</button>
+            </div>
+          </div>
+
           <div class="stage-meta">
             <span class="pill" id="pill-connection">Checking…</span>
             <span class="pill pill-muted" id="pill-device" hidden>No iPhone</span>
@@ -112,6 +142,7 @@
                 <button type="button" class="ctl ctl-icon" id="rotate-ccw" title="Rotate counter-clockwise">↺</button>
                 <button type="button" class="ctl ctl-icon" id="rotate-cw" title="Rotate clockwise">↻</button>
               </div>
+              <button type="button" class="ctl ctl-full" id="compact-btn" title="Compact window layout">Compact window</button>
               <button type="button" class="ctl ctl-full" id="fullscreen" title="Full screen touch view (Esc to exit)">⛶ Full screen</button>
             </div>
           </section>

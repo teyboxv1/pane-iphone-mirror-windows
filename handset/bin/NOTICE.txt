@@ -1,0 +1,9 @@
+Pane bundles an optional AirPlay audio receiver binary for Windows.
+
+When handset/bin/shairport.exe is present, it is derived from Shairport4w
+(https://github.com/Frank-Friemel/Shairport4w), Copyright Frank Friemel and
+contributors, licensed under the GNU General Public License v3.0 or later.
+
+Place the Shairport4w release binary at handset/bin/shairport.exe if you
+wish to enable the Pane Audio AirPlay output. The main Pane application
+remains GPL-3.0; see LICENSE in the repository root.

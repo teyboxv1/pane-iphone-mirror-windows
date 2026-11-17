@@ -16,7 +16,9 @@ import time
 import webbrowser
 from pathlib import Path
 
+from handset.airplay import start_airplay_receiver, stop_airplay_receiver
 from handset.server import HOST, PORT, Handler, SingleServer
+from handset.window import start_caption_stripper
 
 PORT = int(os.environ.get("PANE_PORT", PORT))
 URL = f"http://{HOST}:{PORT}/"
@@ -54,7 +56,7 @@ def _open_window() -> subprocess.Popen | None:
         if browser.is_file():
             # A dedicated profile makes this its own process, so we can tell
             # when the user closes the window.
-            return subprocess.Popen(
+            proc = subprocess.Popen(
                 [
                     str(browser),
                     f"--app={URL}",
@@ -64,6 +66,8 @@ def _open_window() -> subprocess.Popen | None:
                     "--no-default-browser-check",
                 ]
             )
+            start_caption_stripper()
+            return proc
     webbrowser.open(URL)
     return None
 
@@ -78,12 +82,15 @@ def main() -> None:
     threading.Thread(target=server.serve_forever, name="pane-server", daemon=True).start()
     logging.info("Pane listening on %s", URL)
 
+    start_airplay_receiver()
+
     window = _open_window()
     if window is None:
         # No Chrome or Edge: the page is in the default browser; keep serving.
         while True:
             time.sleep(3600)
     window.wait()
+    stop_airplay_receiver()
     server.shutdown()
     os._exit(0)
 

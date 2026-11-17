@@ -1,4 +1,14 @@
 const MIRROR = "/mirror";
+const KNOWN_IOS_MAJOR = (() => {
+  const raw = new URLSearchParams(window.location.search).get("iosMajor");
+  if (raw == null || raw === "") return null;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) ? n : null;
+})();
+const NO_PICTURE_IOS26 =
+  "Live video needs iOS 27 or later. This iPhone can connect, but it does not send a picture on this iOS version.";
+const NO_PICTURE_UNKNOWN =
+  "No picture yet. Keep the iPhone unlocked and press Restart screen. If this phone is on iOS 26 or older, Apple does not send live video until iOS 27.";
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 const statusEl = document.getElementById("mirror-status");
@@ -28,12 +38,21 @@ function fitCanvas() {
   const parent = canvas.parentElement;
   if (!parent) return;
   const rect = parent.getBoundingClientRect();
+  if (rect.width < 1 || rect.height < 1) return;
   const naturalW = canvas.width;
   const naturalH = canvas.height;
   const base = Math.min(rect.width / naturalW, rect.height / naturalH);
   const scale = base * zoom;
   canvas.style.width = `${naturalW * scale}px`;
   canvas.style.height = `${naturalH * scale}px`;
+  publishOrientation();
+}
+
+function publishOrientation() {
+  const landscape = canvas.width > canvas.height;
+  try {
+    window.parent.postMessage({ source: "handset-mirror", landscape }, window.location.origin);
+  } catch (_) {}
 }
 
 window.addEventListener("resize", fitCanvas);
@@ -318,7 +337,10 @@ async function run(generation) {
     }
     if (performance.now() - startedAt > 12000) {
       window.clearInterval(watchdog);
-      setStatus("No picture yet — press Restart screen on the right", "warn");
+      setStatus(
+        KNOWN_IOS_MAJOR != null && KNOWN_IOS_MAJOR < 27 ? NO_PICTURE_IOS26 : NO_PICTURE_UNKNOWN,
+        "warn",
+      );
     }
   }, 1000);
 

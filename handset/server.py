@@ -10,8 +10,10 @@ from urllib.parse import unquote, urlparse
 
 from handset.device import read_handset, snapshot
 from handset.mux import MuxError
+from handset.airplay import airplay_status
 from handset.screen import restart_screen, screen_status, start_screen
-from handset.wifi import pair_for_wifi, wifi_paired_udids
+from handset.wifi import pair_for_wifi, wifi_discovery_snapshot, wifi_paired_udids
+from handset.window import ALLOWED_ACTIONS, window_action
 
 ROOT = Path(__file__).resolve().parent / "web"
 HOST = "127.0.0.1"
@@ -26,6 +28,20 @@ _CLIENT_GONE = (BrokenPipeError, ConnectionAbortedError, ConnectionResetError)
 
 
 class Handler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def handle_one_request(self) -> None:
+        try:
+            super().handle_one_request()
+        except _CLIENT_GONE:
+            pass
+        except Exception:
+            try:
+                if not self.wfile.closed:
+                    self._json({"error": "Internal server error."}, status=500)
+            except Exception:
+                pass
+
     def do_GET(self) -> None:
         path = urlparse(self.path).path
         if path == MIRROR_PREFIX or path.startswith(f"{MIRROR_PREFIX}/"):
@@ -39,6 +55,14 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/screen":
             self._json(screen_status())
+            return
+        if path == "/api/airplay/status":
+            self._json(airplay_status())
+            return
+        if path == "/api/wifi/discover":
+            import asyncio
+
+            self._json(asyncio.run(wifi_discovery_snapshot()))
             return
         if path.startswith("/api/devices/"):
             udid = unquote(path.removeprefix("/api/devices/")).strip("/")
@@ -71,6 +95,15 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "error": "Plug in the iPhone first."}, status=400)
                 return
             self._json(pair_for_wifi(udid))
+            return
+        if path.startswith("/api/window/"):
+            action = path.removeprefix("/api/window/").strip("/")
+            if not action or action not in ALLOWED_ACTIONS:
+                self._json({"ok": False, "error": "Unknown window action."}, status=400)
+                return
+            width = int(payload.get("width") or 0)
+            height = int(payload.get("height") or 0)
+            self._json({"ok": window_action(action, width, height)})
             return
         if path != "/api/screen":
             self._json({"error": "Unknown action."}, status=404)
@@ -115,8 +148,7 @@ class Handler(BaseHTTPRequestHandler):
         return True
 
     def _proxy_mirror_stream(self, method: str, target: str) -> None:
-        """Relay the live body de-chunked; this server speaks HTTP/1.0, so the
-        response is delimited by closing the connection."""
+        """Relay the live body de-chunked; close the client connection after the stream."""
         conn = http.client.HTTPConnection(STREAM_HOST, STREAM_PORT, timeout=600)
         started = False
         self.close_connection = True

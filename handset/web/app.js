@@ -22,8 +22,18 @@ const wifiPair = document.querySelector("#wifi-pair");
 const MIRROR_PAGE = "/mirror.html";
 const MIRROR_API = "/mirror";
 
+function mirrorPageUrl(screen) {
+  const params = new URLSearchParams();
+  if (screen?.iosMajor != null && screen.iosMajor !== "") {
+    params.set("iosMajor", String(screen.iosMajor));
+  }
+  const qs = params.toString();
+  return qs ? `${MIRROR_PAGE}?${qs}` : MIRROR_PAGE;
+}
+
 let selectedUdid = null;
 let screenTimer = 0;
+let lastScreenIosMajor = null;
 let transport = localStorage.getItem("handset-transport") === "wifi" ? "wifi" : "usb";
 let wifiPaired = [];
 let usbConnected = false;
@@ -252,6 +262,7 @@ function renderDetail(device) {
 
 function renderScreen(screen) {
   if (!screen) return;
+  if (screen.iosMajor != null) lastScreenIosMajor = screen.iosMajor;
   const mirroring = screen.phase === "running";
   if (mirroring) {
     workspace.classList.add("is-live");
@@ -263,13 +274,21 @@ function renderScreen(screen) {
     screenNote.className = "";
     showScreen.textContent = "Mirroring…";
     showScreen.disabled = true;
-    if (screenView.getAttribute("src") !== MIRROR_PAGE) screenView.src = MIRROR_PAGE;
+    const mirrorSrc = mirrorPageUrl(screen);
+    const src = screenView.getAttribute("src") || "";
+    if (!src.includes("/mirror.html")) {
+      screenView.src = mirrorSrc;
+    }
     screenView.hidden = false;
+    const compactName = document.querySelector("#compact-device-name");
+    if (compactName && screen.transport) {
+      compactName.textContent = `iPhone (${screen.transport === "wifi" ? "Wi-Fi" : "Cable"})`;
+    }
     return;
   }
 
   workspace.classList.remove("is-live");
-  phoneShell.classList.remove("live");
+  phoneShell.classList.remove("live", "is-landscape");
   remotePanel.hidden = true;
   restartScreen.hidden = true;
   kbToggle.hidden = true;
@@ -359,12 +378,20 @@ function mirrorMessage(cmd, extra = {}) {
   screenView.contentWindow.postMessage({ source: "handset", cmd, ...extra }, window.location.origin);
 }
 
+window.addEventListener("message", (e) => {
+  if (e.origin !== window.location.origin) return;
+  if (e.data?.source !== "handset-mirror") return;
+  phoneShell.classList.toggle("is-landscape", Boolean(e.data.landscape));
+});
+
 function reloadMirrorIframe() {
   if (screenView.hidden) return;
   const stamp = `t=${Date.now()}`;
   screenView.src = "about:blank";
   requestAnimationFrame(() => {
-    screenView.src = `${MIRROR_PAGE}?${stamp}`;
+    const base = mirrorPageUrl({ iosMajor: lastScreenIosMajor });
+    const sep = base.includes("?") ? "&" : "?";
+    screenView.src = `${base}${sep}${stamp}`;
   });
 }
 
@@ -480,7 +507,100 @@ const keyboard = window.HandsetKeys.attach({
   enabled: () => window.handsetKeyboardOn && workspace.classList.contains("is-live"),
 });
 
+const COMPACT_SIZE = { width: 440, height: 890 };
+const STANDARD_SIZE = { width: 1280, height: 860 };
+
+function postWindow(action, size = {}) {
+  return fetch(`/api/window/${action}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(size),
+  }).catch(() => {});
+}
+
+function setCompact(enable) {
+  const on = document.body.classList.toggle("is-compact", enable);
+  document.documentElement.classList.toggle("is-compact", on);
+  const toggleCompact = document.querySelector("#toggle-compact");
+  const compactBtn = document.querySelector("#compact-btn");
+  const compactBar = document.querySelector("#compact-bar");
+  if (toggleCompact) {
+    toggleCompact.textContent = on ? "Expanded" : "Compact";
+    toggleCompact.title = on ? "Return to full layout" : "Compact window layout";
+  }
+  if (compactBtn) {
+    compactBtn.textContent = on ? "Expanded layout" : "Compact window";
+  }
+  if (compactBar) compactBar.hidden = !on;
+  const size = on ? COMPACT_SIZE : STANDARD_SIZE;
+  postWindow("resize", size);
+}
+
+async function refreshAirPlayUi() {
+  const btn = document.querySelector("#compact-audio");
+  const note = document.querySelector("#audio-popup-note");
+  if (!btn) return;
+  try {
+    const data = await getJson("/api/airplay/status");
+    btn.classList.toggle("is-connected", Boolean(data.connected));
+    btn.classList.toggle("is-unavailable", !data.available);
+    if (!data.available) {
+      btn.title = "AirPlay receiver not installed (add handset/bin/shairport.exe)";
+      if (note) {
+        note.hidden = false;
+        note.textContent =
+          "Pane Audio is not bundled in this build. Place Shairport4w as handset/bin/shairport.exe to enable it.";
+      }
+    } else if (data.connected) {
+      btn.title = "Audio streaming via Pane Audio";
+      if (note) note.hidden = true;
+    } else {
+      btn.title = "Set up AirPlay audio (click for steps)";
+      if (note) note.hidden = true;
+    }
+  } catch (_) {}
+}
+
 function wireRemoteControls() {
+  const toggleCompact = () => setCompact(!document.body.classList.contains("is-compact"));
+  document.querySelector("#toggle-compact")?.addEventListener("click", toggleCompact);
+  document.querySelector("#compact-btn")?.addEventListener("click", toggleCompact);
+  document.querySelector("#compact-close")?.addEventListener("click", () => setCompact(false));
+  document.querySelector("#compact-min")?.addEventListener("click", () => postWindow("minimize"));
+  document.querySelector("#compact-expand")?.addEventListener("click", toggleFullscreen);
+  document.querySelector("#win-min")?.addEventListener("click", () => postWindow("minimize"));
+  document.querySelector("#win-close")?.addEventListener("click", () => postWindow("close"));
+
+  const audioPopup = document.querySelector("#audio-popup");
+  const openAudio = async (e) => {
+    e?.preventDefault?.();
+    await refreshAirPlayUi();
+    if (audioPopup) audioPopup.hidden = false;
+  };
+  document.querySelector("#compact-audio")?.addEventListener("click", openAudio);
+  document.querySelector("#open-audio")?.addEventListener("click", openAudio);
+  const closeAudio = () => {
+    if (audioPopup) audioPopup.hidden = true;
+  };
+  document.querySelector("#audio-popup-close")?.addEventListener("click", closeAudio);
+  document.querySelector("#audio-popup-ok")?.addEventListener("click", closeAudio);
+  document.addEventListener("click", (e) => {
+    if (audioPopup && !audioPopup.hidden && !e.target.closest("#audio-popup, #compact-audio")) {
+      closeAudio();
+    }
+  });
+  setInterval(refreshAirPlayUi, 4000);
+  refreshAirPlayUi();
+
+  const startDrag = (el) => {
+    if (!el) return;
+    el.addEventListener("mousedown", (e) => {
+      if (e.button !== 0 || e.target.closest("button, a, input, select, textarea")) return;
+      postWindow("drag");
+    });
+  };
+  startDrag(document.querySelector(".bar-drag"));
+
   kbToggle.addEventListener("click", () => setKeyboard(!window.handsetKeyboardOn));
   setKeyboard(true);
   // A focused button would swallow Space and Enter instead of typing them.
