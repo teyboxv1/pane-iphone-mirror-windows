@@ -71,7 +71,7 @@ It is an alternative to paid tools such as ApowerMirror, LonelyScreen, Reflector
 
 - Windows 10 or Windows 11 (64-bit)
 - Google Chrome or Microsoft Edge (used as the app window)
-- iPhone or iPad running **iOS / iPadOS 17 or newer** with Developer Mode enabled
+- iPhone or iPad running **iOS / iPadOS 27 or newer** with Developer Mode enabled. This is the minimum for a picture. iOS 26 and older can connect, but Apple does not send video frames, so the screen stays black.
 - Apple Devices app or iTunes (for the USB driver)
 
 ## Run from source
@@ -92,7 +92,7 @@ powershell -ExecutionPolicy Bypass -File packaging\build.ps1   # -> dist\Pane.ex
 
 ## How it works
 
-Pane uses [pymobiledevice3](https://github.com/doronz88/pymobiledevice3) to open a secure RemoteXPC / RSD tunnel to the iPhone (over USB, or over Wi-Fi via Bonjour remote pairing), starts the iOS screen-capture service, and streams the HEVC video to a local web UI that decodes it with WebCodecs. Touches, buttons and keystrokes are sent back as HID events. Everything runs locally on `127.0.0.1`.
+Pane uses [pymobiledevice3](https://github.com/doronz88/pymobiledevice3) to open a secure RemoteXPC / RSD tunnel to the iPhone (over USB, or over Wi-Fi via Bonjour remote pairing), starts the iOS screen-capture service on **iOS 27 or newer**, and streams the HEVC video to a local web UI that decodes it with WebCodecs. Touches, buttons and keystrokes are sent back as HID events. Everything runs locally on `127.0.0.1`.
 
 ```
 iPhone ──USB / Wi-Fi tunnel──▶ Pane server (Python) ──localhost──▶ App window (WebCodecs + HID input)
@@ -117,6 +117,9 @@ No. Everything runs on Windows.
 
 **Why does it need Developer Mode?**
 iOS only exposes screen streaming and input injection through its developer services, which require Developer Mode. You can turn it off again at any time.
+
+**Why is the screen black on iOS 26 or older?**
+The minimum for live video is **iOS 27**. On older versions Pane may still connect and send touch or keyboard input, but the phone does not send picture frames. That is an iOS limitation. Update the iPhone to iOS 27 or newer for a picture.
 
 **Windows SmartScreen warns about Pane.exe — is it safe?**
 The executable isn't code-signed yet, so Windows shows a warning for new downloads. Click *More info → Run anyway*, or build it yourself from source.
