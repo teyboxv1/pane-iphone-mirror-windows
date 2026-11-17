@@ -14,6 +14,10 @@
   <img src="https://img.shields.io/badge/license-GPL--3.0-555555" alt="GPL-3.0">
 </p>
 
+<p align="center">
+  <img src="docs/screenshot.png" width="900" alt="Pane mirroring an iPhone on Windows">
+</p>
+
 This application mirrors an iPhone or iPad on a Windows PC and lets you use it with the computer's mouse and keyboard. It does not require a jailbreak, a Mac, or an app installed on the phone. Video and input stay on your own computer.
 
 It focuses on:
