@@ -2,6 +2,8 @@
 
 ## 2026-11-17
 
+Windows build: Pane 1.0.1.
+
 ### Requirements
 
 - Live video requires **iOS / iPadOS 27 or newer**. iOS 26 and older can connect, but the phone does not send picture frames.

@@ -18,7 +18,9 @@
   <img src="docs/screenshot.png" width="900" alt="Pane mirroring an iPhone on Windows">
 </p>
 
-This application mirrors an iPhone or iPad on a Windows PC and lets you use it with the computer's mouse and keyboard. It does not require a jailbreak, a Mac, or an app installed on the phone. Video and input stay on your own computer.
+Pane is iPhone screen mirroring for Windows, a scrcpy for iPhone: the phone's screen on the PC, controlled with the mouse and keyboard, with no jailbreak, no Mac, and no app installed on the phone. Video and input stay on your own computer.
+
+Live video needs **iOS / iPadOS 27 or newer**. On iOS 26 and older the phone can connect, but it sends no picture.
 
 It focuses on:
 
