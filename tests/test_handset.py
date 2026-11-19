@@ -31,6 +31,19 @@ class VpnAdapterTests(unittest.TestCase):
         adapter = SimpleNamespace(nice_name="Wi-Fi", name="wlan0")
         self.assertFalse(_skip_adapter(adapter))
 
+    def test_skip_wifi_direct_without_address(self) -> None:
+        adapter = SimpleNamespace(nice_name="Microsoft Wi-Fi Direct Virtual Adapter", name="wlan1", ips=())
+        self.assertTrue(_skip_adapter(adapter))
+
+    def test_keep_windows_mobile_hotspot(self) -> None:
+        ip = SimpleNamespace(ip="192.168.137.1")
+        adapter = SimpleNamespace(
+            nice_name="Microsoft Wi-Fi Direct Virtual Adapter #2",
+            name="wlan2",
+            ips=(ip,),
+        )
+        self.assertFalse(_skip_adapter(adapter))
+
 
 class BonjourForwardTests(unittest.IsolatedAsyncioTestCase):
     async def test_extra_positional_forwarded(self) -> None:

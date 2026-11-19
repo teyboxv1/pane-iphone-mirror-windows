@@ -54,9 +54,30 @@ def _adapter_label(adapter: object) -> str:
     return " ".join(names)
 
 
+def _private_ipv4(adapter: object) -> bool:
+    for ip in getattr(adapter, "ips", ()) or ():
+        addr = getattr(ip, "ip", None)
+        if not isinstance(addr, str):
+            continue
+        if addr.startswith(("10.", "192.168.")):
+            return True
+        if addr.startswith("172."):
+            parts = addr.split(".")
+            if len(parts) >= 2 and parts[1].isdigit() and 16 <= int(parts[1]) <= 31:
+                return True
+    return False
+
+
 def _skip_adapter(adapter: object) -> bool:
     label = _adapter_label(adapter)
-    return bool(_VPN_ADAPTER.search(label) or _WIFIDIRECT_ADAPTER.search(label))
+    if _VPN_ADAPTER.search(label):
+        return True
+    # Windows mobile hotspot is a Wi-Fi Direct adapter with a private subnet
+    # (usually 192.168.137.0/24). Keep that. Skip Miracast-style adapters that
+    # have no address an iPhone can join.
+    if _WIFIDIRECT_ADAPTER.search(label):
+        return not _private_ipv4(adapter)
+    return False
 
 
 def _local_ipv4() -> list[str]:
@@ -223,7 +244,13 @@ async def _wifi_provider(serial: Optional[str], autopair: bool, remotepairing_fa
         raise WifiNotFoundError(WIFI_NOT_FOUND_HINT)
     for extra in services[1:]:
         await extra.close()
-    return services[0], None
+    # pymobiledevice3 11.59+ expects a TunnelProvider. Older releases used a
+    # plain (service, lockdown) tuple.
+    try:
+        from pymobiledevice3.remote.userspace_tunnel import TunnelProvider
+    except ImportError:
+        return services[0], None
+    return TunnelProvider(services[0])
 
 
 class WifiNotFoundError(RuntimeError):
