@@ -22,24 +22,7 @@ _VPN_ADAPTER = re.compile(
 )
 _WIFIDIRECT_ADAPTER = re.compile(r"wi-?fi direct", re.I)
 
-WIFI_NOT_FOUND_HINT = (
-    "The iPhone was not found on the network. Put the PC and the iPhone on the same Wi-Fi, "
-    "keep the iPhone unlocked, and set that Wi-Fi to Private in Windows settings. "
-    "If a VPN is on, disconnect it or allow local network traffic — VPNs often block Bonjour."
-)
-
-WIFI_NOT_FOUND_NO_ADS = (
-    "Pane did not see the iPhone's Wi-Fi pairing broadcast on the LAN. "
-    "Unplug the USB cable, unlock the iPhone, and confirm it is on Wi-Fi (not cellular only). "
-    "Some routers isolate wireless clients — disable AP/client isolation, or mirror over USB."
-)
-
-WIFI_MULTICAST_BLOCKED = (
-    "Multicast DNS (UDP port 5353) does not appear to work on this PC, so Wi-Fi discovery cannot run. "
-    "Allow Python/Pane through Windows Firewall on Private networks, or use USB mirroring."
-)
-
-BONJOUR_TIMEOUT = 12.0
+BONJOUR_TIMEOUT = 8.0
 _MDNS_GROUP = "224.0.0.251"
 _MDNS_PORT = 5353
 _bonjour_patched = False
@@ -64,33 +47,11 @@ def _local_ipv4() -> list[str]:
         import ifaddr
     except ImportError:
         return []
-    ranked: list[tuple[int, str]] = []
+    found = []
     for adapter in ifaddr.get_adapters():
-        if _skip_adapter(adapter):
-            continue
-        label = _adapter_label(adapter).lower()
-        on_wifi = any(token in label for token in ("wi-fi", "wifi", "wlan", "802.11"))
         for ip in adapter.ips:
-            if not isinstance(ip.ip, str) or ip.ip.startswith("127."):
-                continue
-            addr = ip.ip
-            if addr.startswith("169.254."):
-                score = 10 + (20 if on_wifi else 0)
-            elif addr.startswith(("10.", "192.168.", "172.")):
-                score = 100 + (30 if on_wifi else 0)
-            else:
-                score = 50 + (20 if on_wifi else 0)
-            ranked.append((score, addr))
-    if not ranked:
-        return []
-    ranked.sort(key=lambda item: -item[0])
-    found: list[str] = []
-    seen: set[str] = set()
-    for _, addr in ranked:
-        if addr in seen:
-            continue
-        seen.add(addr)
-        found.append(addr)
+            if isinstance(ip.ip, str) and not ip.ip.startswith("127."):
+                found.append(ip.ip)
     return found
 
 
@@ -115,8 +76,11 @@ async def wifi_discovery_snapshot(timeout: float = 4.0) -> dict:
     sent, errors = await bonjour.probe_multicast()
     blocked = bonjour.is_multicast_blocked(sent, errors)
     seen = 0
-    async for _ in bonjour.iter_browse_remotepairing(timeout=timeout):
-        seen += 1
+    try:
+        async for _ in bonjour.iter_browse_remotepairing(timeout=timeout):
+            seen += 1
+    except Exception:
+        pass
     return {
         "localAddresses": _local_ipv4(),
         "multicastBlocked": blocked,
@@ -210,17 +174,10 @@ async def _wifi_provider(serial: Optional[str], autopair: bool, remotepairing_fa
         udid=serial, bonjour_timeout=BONJOUR_TIMEOUT
     )
     if not services:
-        if serial and not remote_pairing_record_ok(serial):
-            raise WifiNotFoundError(
-                "This PC's Wi-Fi pairing record is outdated. Plug in the cable, tap Trust, "
-                "and press Set up Wi-Fi again."
-            )
-        probe = await wifi_discovery_snapshot(timeout=min(5.0, BONJOUR_TIMEOUT))
-        if probe["multicastBlocked"]:
-            raise WifiNotFoundError(f"{WIFI_NOT_FOUND_HINT} {WIFI_MULTICAST_BLOCKED}")
-        if probe["remotepairingAdvertisements"] == 0:
-            raise WifiNotFoundError(f"{WIFI_NOT_FOUND_HINT} {WIFI_NOT_FOUND_NO_ADS}")
-        raise WifiNotFoundError(WIFI_NOT_FOUND_HINT)
+        raise WifiNotFoundError(
+            "The iPhone was not found on the network. Put the PC and the iPhone on the same Wi-Fi, "
+            "keep the iPhone unlocked, and set that Wi-Fi to Private in Windows settings."
+        )
     for extra in services[1:]:
         await extra.close()
     return services[0], None

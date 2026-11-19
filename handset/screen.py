@@ -1,14 +1,15 @@
-"""Xcode's device screen, on Windows.
+"""Launch and supervise the video stream and input bridge.
 
-After Trust, iOS 17.4+ exposes CoreDeviceProxy over the USB service broker,
-or RemotePairing over Wi-Fi once paired for it. Either tunnel carries a
-display service. The phone then sends the screen as HEVC video. The browser
-decodes it.
+Pane delegates the actual HEVC stream and WebCodecs decoding to
+pymobiledevice3's ScreenStreamServer (same mechanism as Xcode's Device Hub).
+This module keeps the subprocess / task alive and provides a single endpoint
+for the UI to check status and stop/restart mirroring.
 """
 
 from __future__ import annotations
 
 import asyncio
+import http.client
 import threading
 
 from handset.device import developer_mode_enabled, product_version
@@ -16,8 +17,8 @@ from handset.mux import MuxError, list_devices
 from handset.wifi import wifi_paired_udids, wifi_tunnel
 
 DEVELOPER_MODE_MESSAGE = (
-    "The picture stays black because Developer Mode is off. On the iPhone open Settings, "
-    "Privacy & Security, Developer Mode, turn it on, and let the phone restart. After it boots, "
+    "Developer Mode is not enabled on this iPhone. Open Settings -> Privacy & Security -> "
+    "Developer Mode, turn it on, and restart the phone. If the computer is trusted, you can "
     "unlock it, tap Turn On, then press Show screen again."
 )
 
@@ -49,14 +50,11 @@ def screen_status() -> dict:
 
 
 def restart_screen(udid: str | None = None) -> dict:
-    """Nudge the device encoder and keep the HTTP stream on 8766 alive."""
-    import http.client
-
-    chosen = (udid or "").strip() or _STATE.get("udid") or _only_udid()
+    chosen = (udid or "").strip() or _only_udid()
     nudged = False
-    for path in ("/restart", "/pli"):
+    for path in ("/stream/restart", "/restart"):
         try:
-            conn = http.client.HTTPConnection("127.0.0.1", 8766, timeout=20)
+            conn = http.client.HTTPConnection("127.0.0.1", 8766, timeout=1.5)
             conn.request("POST", path, body=b"", headers={})
             response = conn.getresponse()
             response.read()
@@ -82,39 +80,20 @@ def start_screen(udid: str | None, transport: str = "auto") -> dict:
             return _set(phase="idle", udid=None, url=None, error="Set up Wi-Fi once with the cable plugged in.")
         return _set(phase="idle", udid=None, url=None, error="Connect the iPhone first.")
 
-    if transport == "auto":
+    if transport == "auto" or (transport == "usb" and not usb and chosen in wifi):
         transport = "usb" if chosen in usb else "wifi"
     if transport == "usb" and chosen not in usb:
-        return _set(phase="error", udid=chosen, url=None, error="The iPhone is not on the cable. Plug it in or choose Wi-Fi.")
+        if chosen in wifi:
+            transport = "wifi"
+        else:
+            return _set(phase="error", udid=chosen, url=None, error="The iPhone is not on the cable. Plug it in or choose Wi-Fi.")
     if transport == "wifi" and chosen not in wifi:
         return _set(phase="error", udid=chosen, url=None, error="Set up Wi-Fi once with the cable plugged in.")
-    if transport == "wifi" and chosen in usb:
-        return _set(
-            phase="error",
-            udid=chosen,
-            url=None,
-            error=(
-                "The iPhone is still plugged in, so it is not announcing itself on Wi-Fi. "
-                "Choose Cable and press Start mirroring. For Wi-Fi, unplug the cable, keep the phone unlocked "
-                "on the same Wi-Fi, then start again."
-            ),
-            transport="wifi",
-        )
     if transport == "usb" and developer_mode_enabled(chosen) is False:
         return _set(phase="error", udid=chosen, url=None, error=DEVELOPER_MODE_MESSAGE)
 
     product_ver = product_version(chosen) if chosen in usb else None
     ios_major = _parse_ios_major(product_ver)
-    if ios_major is not None and ios_major < MIN_IOS_MAJOR_FOR_VIDEO:
-        return _set(
-            phase="error",
-            udid=chosen,
-            url=None,
-            error=IOS_VIDEO_VERSION_MESSAGE,
-            transport=transport,
-            productVersion=product_ver,
-            iosMajor=ios_major,
-        )
 
     with _LOCK:
         if _STATE["phase"] in {"starting", "running"} and _STATE["udid"] == chosen:
@@ -176,34 +155,20 @@ async def _stream(rsd, udid: str, ScreenStreamServer) -> None:
 
     server = ScreenStreamServer(
         rsd,
-        bind="127.0.0.1",
-        http_port=8766,
-        audio_default_on=False,
+        port=8766,
+        media_streaming_error_handler=is_media_in_use_error,
+        enable_hevc=True,
     )
-
-    async def _eager_video_only() -> None:
-        # Windows cannot decode AAC-ELD; skip eager audio so logs stay clean and
-        # the display tunnel still comes up for /codec and /stream.bin.
-        try:
-            await server._ensure_fresh_stream(force=False)
-        except Exception as error:
-            if is_media_in_use_error(error):
-                raise
-            import logging
-
-            logging.getLogger(__name__).warning(
-                "eager video start failed (will retry on /codec)",
-                exc_info=True,
-            )
-
-    server._eager_stream_start = _eager_video_only
     _set(phase="running", udid=udid, url=VIEW_URL, error=None, note=None)
-    await server.serve()
+    try:
+        await server.start()
+    finally:
+        _set(phase="idle", udid=udid, url=None, note=None)
 
 
 def _usb_udids() -> list[str]:
     try:
-        return [device["udid"] for device in list_devices()]
+        return [dev.serial for dev in list_devices() if getattr(dev, "connection_type", None) == "USB"]
     except MuxError:
         return []
 
@@ -222,9 +187,13 @@ def _parse_ios_major(version: str | None) -> int | None:
 def _only_udid(usb: list[str] | None = None, wifi: list[str] | None = None, transport: str = "auto") -> str | None:
     usb = _usb_udids() if usb is None else usb
     wifi = wifi_paired_udids() if wifi is None else wifi
-    if transport != "wifi" and len(usb) == 1:
+    if transport == "usb" and usb:
         return usb[0]
-    if transport != "usb" and len(wifi) == 1:
+    if transport == "wifi" and wifi:
+        return wifi[0]
+    if usb:
+        return usb[0]
+    if wifi:
         return wifi[0]
     return None
 
