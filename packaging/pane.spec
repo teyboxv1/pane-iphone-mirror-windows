@@ -12,11 +12,14 @@ SHIMS = ROOT / "handset" / "_shims"
 sys.path.insert(0, str(SHIMS))
 os.environ["PYTHONPATH"] = os.pathsep.join(filter(None, [str(SHIMS), os.environ.get("PYTHONPATH")]))
 
-datas = [
-    (str(ROOT / "handset" / "web"), "handset/web"),
-    (str(ROOT / "desktop"), "desktop"),
-    (str(ROOT / "handset" / "bin"), "handset/bin"),
-]
+datas = [(str(ROOT / "handset" / "web"), "handset/web")]
+_bin_dir = ROOT / "handset" / "bin"
+if _bin_dir.is_dir():
+    datas.append((str(_bin_dir), "handset/bin"))
+_desktop_dir = ROOT / "desktop"
+if _desktop_dir.is_dir():
+    datas.append((str(_desktop_dir), "desktop"))
+
 binaries = []
 hiddenimports = [
     "lzfse",
@@ -25,8 +28,8 @@ hiddenimports = [
     "handset.screen",
     "handset.wifi",
     "handset.window",
-    "handset.audio",
     "handset.airplay",
+    "psutil",
 ]
 
 # pymobiledevice3 imports most services lazily and ships viewer assets,

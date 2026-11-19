@@ -63,6 +63,18 @@ def snapshot() -> dict:
     }
 
 
+def product_version(udid: str) -> str | None:
+    """Read ProductVersion over USB lockdown, or None if unavailable."""
+    try:
+        data = read_handset(udid)
+    except MuxError:
+        return None
+    if data.get("error") or not isinstance(data.get("info"), dict):
+        return None
+    value = data["info"].get("ProductVersion")
+    return str(value).strip() if value is not None else None
+
+
 def read_handset(udid: str) -> dict:
     match = next((device for device in list_devices() if device["udid"] == udid), None)
     if match is None:

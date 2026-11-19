@@ -22,8 +22,18 @@ const wifiPair = document.querySelector("#wifi-pair");
 const MIRROR_PAGE = "/mirror.html";
 const MIRROR_API = "/mirror";
 
+function mirrorPageUrl(screen) {
+  const params = new URLSearchParams();
+  if (screen?.iosMajor != null && screen.iosMajor !== "") {
+    params.set("iosMajor", String(screen.iosMajor));
+  }
+  const qs = params.toString();
+  return qs ? `${MIRROR_PAGE}?${qs}` : MIRROR_PAGE;
+}
+
 let selectedUdid = null;
 let screenTimer = 0;
+let lastScreenIosMajor = null;
 let transport = localStorage.getItem("handset-transport") === "wifi" ? "wifi" : "usb";
 let wifiPaired = [];
 let usbConnected = false;
@@ -113,145 +123,112 @@ function renderPills(state) {
     setPill(pillConnection, state.screen.transport === "wifi" ? "Mirroring · Wi‑Fi" : "Mirroring", "ok");
   } else if (overWifi) {
     setPill(pillConnection, "Wi‑Fi ready", "ok");
-  } else if (state.error) {
-    setPill(pillConnection, "Error", "bad");
-  } else if (!driver.ready) {
-    setPill(pillConnection, "Install Apple Devices", "warn");
-  } else if (!connected) {
-    setPill(pillConnection, "Plug in iPhone", "warn");
-  } else if (state.developerMode === false) {
-    setPill(pillConnection, "Developer Mode off", "warn");
-  } else if (state.screen?.phase === "running") {
-    setPill(pillConnection, "Mirroring", "ok");
+  } else if (connected) {
+    setPill(pillConnection, "Connected", "ok");
+  } else if (driver.running) {
+    setPill(pillConnection, "Driver running", "");
   } else {
-    setPill(pillConnection, "Ready", "ok");
+    setPill(pillConnection, "No connection", "warn");
   }
 
-  if (!connected) {
-    pillDevice.hidden = !overWifi;
-    pillDevice.textContent = "Wi‑Fi";
-    return;
+  const first = (state.devices || [])[0];
+  if (first) {
+    pillDevice.hidden = false;
+    pillDevice.textContent = first.name || first.model || "iPhone";
+  } else if (overWifi) {
+    pillDevice.hidden = false;
+    pillDevice.textContent = "iPhone (Wi‑Fi)";
+  } else {
+    pillDevice.hidden = true;
   }
-  pillDevice.hidden = false;
-  const count = state.devices.length;
-  pillDevice.textContent = count === 1 ? "1 device · USB" : `${count} devices`;
 }
 
-function setPill(el, text, tone) {
-  el.textContent = text;
-  el.className = "pill" + (tone ? ` pill-${tone}` : "");
+function setPill(pill, text, kind) {
+  pill.textContent = text;
+  pill.className = `pill ${kind ? `pill-${kind}` : ""}`.trim();
 }
 
 function renderStatus(state) {
-  const library = state.library || {};
+  statusList.replaceChildren();
   const driver = state.driver || {};
-  statusList.replaceChildren(
-    ...row("Client", library.ready ? "ready" : "missing", library.ready),
-    ...row("USB service", driver.ready ? "running" : "missing", driver.ready),
-    ...row("Developer Mode", state.developerMode === false ? "off" : state.developerMode ? "on" : "—", state.developerMode !== false),
-  );
-  const connected = (state.devices || []).length > 0;
-  if (state.developerMode === false) {
+  addRow(statusList, "Apple Mobile Device service", driver.running ? "Running" : "Stopped");
+  addRow(statusList, "Driver DLL", driver.dll_found ? "Found" : "Missing");
+  const count = (state.devices || []).length;
+  addRow(statusList, "USB devices", `${count} attached`);
+  const wifiCount = wifiPaired.length;
+  addRow(statusList, "Wi‑Fi paired", `${wifiCount} remembered`);
+  if (!driver.running) {
     statusNote.textContent =
-      "Turn on Developer Mode on the iPhone (Settings → Privacy & Security), restart, then mirror again.";
-    placeholderHint.textContent = "Developer Mode must be on before mirroring works.";
-    return;
-  }
-  statusNote.textContent =
-    state.error ||
-    (connected ? "Device connected. Press Start mirroring." : driver.detail) ||
-    "";
-  statusNote.className = state.error || !driver.ready ? "warn" : "";
-  if (!connected && (state.wifi?.paired || []).length) {
-    statusNote.textContent = "No cable. Choose Wi‑Fi, keep the iPhone unlocked on the same network, and press Start mirroring.";
+      "Apple Mobile Device service is not running. Install 'Apple Devices' from Microsoft Store or iTunes.";
+    statusNote.className = "warn";
+  } else {
+    statusNote.textContent = "";
     statusNote.className = "";
-    placeholderHint.textContent = "No cable needed — choose Wi‑Fi and press Start mirroring.";
-  } else if (!connected) {
-    placeholderHint.textContent = "Connect your iPhone with a data cable, unlock it, and tap Trust.";
   }
 }
 
-function renderDevices(list) {
+function renderDevices(devices) {
   devicesEl.replaceChildren();
-  if (!list.length && transport === "wifi" && wifiPaired.length) {
-    list = wifiPaired.map((udid) => ({ udid, connection: "Wi‑Fi", wifiOnly: true }));
-  }
-  if (!list.length) {
-    const item = document.createElement("li");
-    item.className = "empty";
-    item.textContent = "No iPhone detected.";
-    devicesEl.append(item);
+  if (devices.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent =
+      transport === "wifi" && wifiPaired.length > 0
+        ? "No cable connected. iPhone is ready to mirror over Wi‑Fi."
+        : "No iPhone connected over USB yet. Plug it in and tap Trust.";
+    devicesEl.appendChild(li);
     selectedUdid = null;
     return;
   }
-  if (list.length === 1) selectedUdid = list[0].udid;
-
-  for (const device of list) {
-    const item = document.createElement("li");
-    const button = document.createElement("button");
-    button.className = "device" + (device.udid === selectedUdid ? " selected" : "");
-    button.type = "button";
-    const name = document.createElement("span");
+  devices.forEach((dev) => {
+    const li = document.createElement("li");
+    li.className = "device-item";
+    const name = document.createElement("p");
     name.className = "device-name";
-    name.textContent = device.udid.slice(0, 8) + "…";
-    const meta = document.createElement("span");
+    name.textContent = dev.name || "iPhone";
+    const meta = document.createElement("p");
     meta.className = "device-meta";
-    meta.textContent = device.connection || "USB";
-    button.append(name, meta);
-    button.addEventListener("click", () => {
-      selectedUdid = device.udid;
-      devicesEl.querySelectorAll(".device").forEach((el) => el.classList.remove("selected"));
-      button.classList.add("selected");
-      if (!device.wifiOnly) openDevice(device.udid);
-      renderWifi();
-    });
-    item.append(button);
-    devicesEl.append(item);
+    meta.textContent = [dev.model, dev.connection_type].filter(Boolean).join(" · ");
+    li.appendChild(name);
+    li.appendChild(meta);
+    li.addEventListener("click", () => selectDevice(dev.udid));
+    devicesEl.appendChild(li);
+  });
+  if (!selectedUdid || !devices.some((d) => d.udid === selectedUdid)) {
+    selectDevice(devices[0].udid);
   }
-  if (list.length === 1 && !list[0].wifiOnly) openDevice(list[0].udid);
 }
 
-async function openDevice(udid) {
-  detail.hidden = false;
-  detail.textContent = "Reading device…";
+async function selectDevice(udid) {
+  selectedUdid = udid;
+  renderWifi();
   try {
-    const device = await getJson(`/api/devices/${encodeURIComponent(udid)}`);
-    renderDetail(device);
-    if (device.info?.DeviceName) {
-      pillDevice.hidden = false;
-      pillDevice.textContent = device.info.DeviceName;
-    }
+    const dev = await getJson(`/api/devices/${encodeURIComponent(udid)}`);
+    renderDetail(dev);
   } catch (error) {
+    detail.hidden = false;
     detail.textContent = error.message;
   }
 }
 
 function renderDetail(device) {
+  detail.hidden = false;
   detail.replaceChildren();
-  const title = document.createElement("h3");
-  title.textContent = device.info?.DeviceName || "iPhone";
-  detail.append(title);
-  if (device.error) {
-    const note = document.createElement("p");
-    note.className = "warn";
-    note.textContent = device.error;
-    detail.append(note);
-  }
-  const list = document.createElement("dl");
-  list.className = "kv";
-  const labels = {
-    ProductType: "Model",
-    ProductVersion: "iOS",
-    BuildVersion: "Build",
-  };
-  for (const [key, label] of Object.entries(labels)) {
-    if (device.info && device.info[key] != null) list.append(...row(label, String(device.info[key]), true));
-  }
-  if (list.childElementCount) detail.append(list);
+  const dl = document.createElement("dl");
+  dl.className = "kv";
+  addRow(dl, "Name", device.DeviceName);
+  addRow(dl, "Model", device.ProductType);
+  addRow(dl, "iOS version", device.ProductVersion);
+  addRow(dl, "Serial", device.SerialNumber);
+  addRow(dl, "UDID", device.UniqueDeviceID);
+  addRow(dl, "Wi‑Fi address", device.WiFiAddress);
+  addRow(dl, "Developer mode", device.DeveloperModeStatus ? "Enabled" : "Disabled");
+  detail.appendChild(dl);
 }
 
 function renderScreen(screen) {
   if (!screen) return;
+  if (screen.iosMajor != null) lastScreenIosMajor = screen.iosMajor;
   const mirroring = screen.phase === "running";
   if (mirroring) {
     workspace.classList.add("is-live");
@@ -259,255 +236,278 @@ function renderScreen(screen) {
     remotePanel.hidden = false;
     restartScreen.hidden = false;
     kbToggle.hidden = false;
-    screenNote.textContent = "Mirroring — typing on your keyboard goes to the iPhone.";
+    screenNote.textContent = "";
     screenNote.className = "";
     showScreen.textContent = "Mirroring…";
     showScreen.disabled = true;
-    if (screenView.getAttribute("src") !== MIRROR_PAGE) screenView.src = MIRROR_PAGE;
+    const mirrorSrc = mirrorPageUrl(screen);
+    const src = screenView.getAttribute("src") || "";
+    if (!src.includes("/mirror.html")) {
+      screenView.src = mirrorSrc;
+    }
     screenView.hidden = false;
     const compactName = document.querySelector("#compact-device-name");
     if (compactName && screen.transport) {
-      compactName.textContent = `iPhone (${screen.transport === "wifi" ? "Wi-Fi" : "Cable"})`;
+      compactName.textContent = screen.transport === "wifi" ? "iPhone (Wi‑Fi)" : "iPhone (Cable)";
     }
     return;
   }
 
   workspace.classList.remove("is-live");
-  phoneShell.classList.remove("live");
+  phoneShell.classList.remove("live", "is-landscape");
   remotePanel.hidden = true;
   restartScreen.hidden = true;
   kbToggle.hidden = true;
   screenView.hidden = true;
   screenView.src = "about:blank";
-  showScreen.textContent = "Start mirroring";
-  showScreen.disabled = false;
 
   if (screen.phase === "starting") {
-    screenNote.textContent = screen.note || "Starting stream… keep the iPhone unlocked.";
-    screenNote.className = "";
     showScreen.disabled = true;
-    showScreen.textContent = "Connecting…";
-    return;
-  }
-  if (screen.error) {
-    screenNote.textContent = screen.error;
+    showScreen.textContent = "Starting…";
+    screenNote.textContent = screen.note || "Starting screen stream…";
+    screenNote.className = "";
+  } else if (screen.phase === "error") {
+    showScreen.disabled = false;
+    showScreen.textContent = "Start mirroring";
+    screenNote.textContent = screen.error || "Failed to start mirroring.";
     screenNote.className = "warn";
-    return;
+  } else {
+    showScreen.disabled = false;
+    showScreen.textContent = "Start mirroring";
+    screenNote.textContent = "";
+    screenNote.className = "";
   }
-  screenNote.textContent = "";
-  screenNote.className = "";
 }
 
 async function showPhone() {
+  screenNote.textContent =
+    transport === "wifi" ? "Connecting over Wi‑Fi…" : "Starting screen stream…";
+  screenNote.className = "";
   showScreen.disabled = true;
-  showScreen.textContent = "Connecting…";
+  showScreen.textContent = "Starting…";
   try {
-    renderScreen(await postJson("/api/screen", { udid: selectedUdid, transport }));
-    watchScreen();
-    load();
+    const screen = await postJson("/api/screen", { udid: selectedUdid, transport });
+    renderScreen(screen);
+    pollScreen();
   } catch (error) {
     screenNote.textContent = error.message;
     screenNote.className = "warn";
-    showScreen.textContent = "Start mirroring";
     showScreen.disabled = false;
+    showScreen.textContent = "Start mirroring";
   }
 }
 
-function watchScreen() {
-  window.clearInterval(screenTimer);
-  screenTimer = window.setInterval(async () => {
+function pollScreen() {
+  window.clearTimeout(screenTimer);
+  screenTimer = window.setTimeout(async () => {
     try {
       const screen = await getJson("/api/screen");
       renderScreen(screen);
-      if (screen.phase !== "starting") {
-        window.clearInterval(screenTimer);
-        load();
+      if (screen.phase === "starting") {
+        pollScreen();
       }
-    } catch (error) {
-      screenNote.textContent = error.message;
-      window.clearInterval(screenTimer);
+    } catch (_) {
+      pollScreen();
     }
   }, 1000);
 }
 
-function row(label, value, ok) {
-  const term = document.createElement("dt");
-  term.textContent = label;
-  const data = document.createElement("dd");
-  data.textContent = value;
-  if (ok === true) data.className = "ok";
-  if (ok === false) data.className = "warn";
-  return [term, data];
+function addRow(container, key, value) {
+  if (value === undefined || value === null || value === "") return;
+  const dt = document.createElement("dt");
+  dt.textContent = key;
+  const dd = document.createElement("dd");
+  dd.textContent = String(value);
+  container.appendChild(dt);
+  container.appendChild(dd);
 }
 
 async function getJson(url) {
-  const response = await fetch(url);
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`);
-  return body;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
-async function postJson(url, payload) {
-  const response = await fetch(url, {
+async function postJson(url, data) {
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(data || {}),
   });
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`);
-  return body;
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+async function mirrorPost(path, data) {
+  return fetch(`${MIRROR_API}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data || {}),
+  }).catch(() => {});
 }
 
 function mirrorMessage(cmd, extra = {}) {
-  if (!screenView.contentWindow || screenView.hidden) return;
+  if (!screenView.contentWindow) return;
   screenView.contentWindow.postMessage({ source: "handset", cmd, ...extra }, window.location.origin);
 }
+
+window.addEventListener("message", (e) => {
+  if (e.origin !== window.location.origin) return;
+  if (e.data?.source !== "handset-mirror") return;
+  phoneShell.classList.toggle("is-landscape", Boolean(e.data.landscape));
+});
 
 function reloadMirrorIframe() {
   if (screenView.hidden) return;
   const stamp = `t=${Date.now()}`;
   screenView.src = "about:blank";
   requestAnimationFrame(() => {
-    screenView.src = `${MIRROR_PAGE}?${stamp}`;
+    const base = mirrorPageUrl({ iosMajor: lastScreenIosMajor });
+    const sep = base.includes("?") ? "&" : "?";
+    screenView.src = `${base}${sep}${stamp}`;
   });
 }
 
 async function restartMirror() {
   restartScreen.disabled = true;
-  screenNote.textContent = "Restarting screen… keep the iPhone unlocked.";
+  restartScreen.textContent = "Restarting…";
+  screenNote.textContent = "Restarting screen stream…";
   screenNote.className = "";
   try {
-    await postJson("/api/screen/restart", { udid: selectedUdid });
-    await new Promise((r) => setTimeout(r, 1500));
+    const res = await postJson("/api/screen/restart", { udid: selectedUdid });
+    renderScreen(res);
     reloadMirrorIframe();
-    screenNote.textContent = "Restart sent — waiting for picture…";
-    window.setTimeout(() => {
-      if (workspace.classList.contains("is-live")) {
-        screenNote.textContent = "Mirroring — use Restart screen if the picture stays black.";
-      }
-    }, 4000);
+    pollScreen();
   } catch (error) {
     screenNote.textContent = error.message;
     screenNote.className = "warn";
   } finally {
     restartScreen.disabled = false;
-  }
-}
-
-async function mirrorPost(path, payload) {
-  try {
-    await fetch(`${MIRROR_API}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-  } catch (_) {}
-}
-
-async function swipe(direction) {
-  const yMid = 32768;
-  const xStart = direction === "left" ? 60000 : 5000;
-  const xEnd = direction === "left" ? 5000 : 60000;
-  const steps = 10;
-  const dt = 20;
-  await mirrorPost("/touch", { type: "contact", x: xStart, y: yMid });
-  for (let i = 1; i <= steps; i++) {
-    const x = Math.round(xStart + (xEnd - xStart) * (i / steps));
-    await new Promise((r) => setTimeout(r, dt));
-    await mirrorPost("/touch", { type: "contact", x, y: yMid });
-  }
-  await mirrorPost("/touch", { type: "release", x: xEnd, y: yMid });
-}
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-// Coordinates are HID units (0..65535). iOS only treats a swipe as a system
-// gesture when the contact starts on the very edge of the screen.
-const GESTURES = {
-  notifications: { from: [16000, 0], to: [16000, 42000], steps: 12, dt: 16 },
-  control: { from: [58000, 0], to: [58000, 42000], steps: 12, dt: 16 },
-};
-
-// A swipe-up injected over USB is too slow for iOS to treat as the Home
-// gesture, so Home and the app switcher use the Home button instead.
-async function pressHome(times) {
-  for (let i = 0; i < times; i++) {
-    if (i) await sleep(120);
-    await mirrorPost("/button", { name: "home", state: "press" });
+    restartScreen.textContent = "Restart stream";
   }
 }
 
 async function gesture(name) {
-  if (name === "home") return pressHome(1);
-  if (name === "switcher") return pressHome(2);
-  const g = GESTURES[name];
-  if (!g) return;
-  const [x0, y0] = g.from;
-  const [x1, y1] = g.to;
-  await mirrorPost("/touch", { type: "contact", x: x0, y: y0 });
-  for (let i = 1; i <= g.steps; i++) {
-    await sleep(g.dt);
-    const t = i / g.steps;
-    await mirrorPost("/touch", {
-      type: "contact",
-      x: Math.round(x0 + (x1 - x0) * t),
-      y: Math.round(y0 + (y1 - y0) * t),
-    });
+  switch (name) {
+    case "home":
+      return mirrorPost("/button", { name: "home", state: "press" });
+    case "switcher":
+      return mirrorPost("/button", { name: "app-switch", state: "press" });
+    case "notifications":
+      return mirrorPost("/gesture", { kind: "notifications" });
+    case "control-center":
+      return mirrorPost("/gesture", { kind: "control-center" });
+    default:
+      break;
   }
-  if (g.hold) {
-    await sleep(g.hold);
-    await mirrorPost("/touch", { type: "contact", x: x1, y: y1 });
-  }
-  await mirrorPost("/touch", { type: "release", x: x1, y: y1 });
+}
+
+async function swipe(dir) {
+  const points = {
+    left: { x1: 0.98, y1: 0.5, x2: 0.5, y2: 0.5 },
+    right: { x1: 0.02, y1: 0.5, x2: 0.5, y2: 0.5 },
+    up: { x1: 0.5, y1: 0.95, x2: 0.5, y2: 0.5 },
+    down: { x1: 0.5, y1: 0.05, x2: 0.5, y2: 0.5 },
+  }[dir];
+  if (!points) return;
+  return mirrorPost("/gesture", { kind: "drag", duration: 0.2, ...points });
+}
+
+function setKeyboard(on) {
+  window.handsetKeyboardOn = Boolean(on);
+  if (!kbToggle) return;
+  kbToggle.setAttribute("aria-pressed", String(window.handsetKeyboardOn));
+  const label = kbToggle.querySelector(".kb-state");
+  if (label) label.textContent = window.handsetKeyboardOn ? "on" : "off";
+  kbToggle.classList.toggle("ghost-active", window.handsetKeyboardOn);
 }
 
 function toggleFullscreen() {
-  if (document.fullscreenElement) {
-    document.exitFullscreen().catch(() => {});
-    return;
+  const el = phoneScreen;
+  if (!el) return;
+  if (!document.fullscreenElement) {
+    (el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen).call(el);
+  } else {
+    (document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen).call(document);
   }
-  phoneScreen.requestFullscreen?.().catch(() => {});
-}
-
-window.handsetKeyboardOn = true;
-
-function setKeyboard(on) {
-  window.handsetKeyboardOn = on;
-  kbToggle.setAttribute("aria-pressed", String(on));
-  kbToggle.textContent = `⌨ Keyboard → iPhone: ${on ? "On" : "Off"}`;
-  kbToggle.classList.toggle("is-on", on);
-  if (!on) keyboard.releaseAll();
 }
 
 const keyboard = window.HandsetKeys.attach({
-  post: (payload) => mirrorPost("/key", payload),
+  target: window,
+  post: (path, data) => mirrorPost(path, data),
   enabled: () => window.handsetKeyboardOn && workspace.classList.contains("is-live"),
 });
 
-function setCompact(enable) {
-  const isCompact = document.body.classList.toggle("is-compact", enable);
-  document.documentElement.classList.toggle("is-compact", isCompact);
-  const toggleBtn = document.querySelector("#toggle-compact");
-  const compactBtn = document.querySelector("#compact-btn");
-  if (toggleBtn) {
-    toggleBtn.textContent = isCompact ? "Mở rộng" : "Thu nhỏ";
-    toggleBtn.title = isCompact ? "Mở rộng giao diện" : "Thu nhỏ giao diện";
+const COMPACT_SIZE = { width: 440, height: 890 };
+const STANDARD_SIZE = { width: 1280, height: 860 };
+
+function postWindow(action, size = {}) {
+  if (window.electronAPI) {
+    if (action === "minimize" && window.electronAPI.minimize) {
+      window.electronAPI.minimize();
+      return Promise.resolve();
+    }
+    if (action === "close" && window.electronAPI.close) {
+      window.electronAPI.close();
+      return Promise.resolve();
+    }
+    if (action === "resize" && window.electronAPI.resize && size.width && size.height) {
+      window.electronAPI.resize(size.width, size.height);
+    }
   }
-  if (compactBtn) {
-    compactBtn.textContent = isCompact ? "🗖 Mở rộng" : "🗗 Thu nhỏ";
-    compactBtn.title = isCompact ? "Mở rộng giao diện" : "Thu nhỏ giao diện";
-  }
-  const size = isCompact ? { width: 440, height: 890 } : { width: 1280, height: 860 };
-  if (window.electronAPI?.resize) {
-    window.electronAPI.resize(size.width, size.height);
-  }
-  fetch("/api/window/resize", {
+  return fetch(`/api/window/${action}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(size),
   }).catch(() => {});
+}
+
+function setCompact(enable) {
+  const on = document.body.classList.toggle("is-compact", enable);
+  document.documentElement.classList.toggle("is-compact", on);
+  const toggleCompact = document.querySelector("#toggle-compact");
+  const compactBtn = document.querySelector("#compact-btn");
+  const compactBar = document.querySelector("#compact-bar");
+  if (toggleCompact) {
+    toggleCompact.textContent = on ? "Expanded" : "Compact";
+    toggleCompact.title = on ? "Return to full layout" : "Compact window layout";
+  }
+  if (compactBtn) {
+    compactBtn.textContent = on ? "Expanded layout" : "Compact window";
+  }
+  if (compactBar) compactBar.hidden = !on;
+  const size = on ? COMPACT_SIZE : STANDARD_SIZE;
+  postWindow("resize", size);
+}
+
+async function refreshAirPlayUi() {
+  const btn = document.querySelector("#compact-audio");
+  const note = document.querySelector("#audio-popup-note");
+  if (!btn) return;
   try {
-    window.resizeTo(size.width, size.height);
+    const data = await getJson("/api/airplay/status");
+    btn.classList.toggle("is-connected", Boolean(data.connected));
+    btn.classList.toggle("is-unavailable", !data.available);
+    if (!data.available) {
+      btn.title = "AirPlay receiver not installed (add handset/bin/shairport.exe)";
+      if (note) {
+        note.hidden = false;
+        note.textContent =
+          "Pane Audio is not bundled in this build. Place Shairport4w as handset/bin/shairport.exe to enable it.";
+      }
+    } else if (data.connected) {
+      btn.title = "Audio streaming via Pane Audio";
+      if (note) note.hidden = true;
+    } else {
+      btn.title = "Set up AirPlay audio (click for steps)";
+      if (note) note.hidden = true;
+    }
   } catch (_) {}
 }
 
@@ -515,80 +515,41 @@ function wireRemoteControls() {
   const toggleCompact = () => setCompact(!document.body.classList.contains("is-compact"));
   document.querySelector("#toggle-compact")?.addEventListener("click", toggleCompact);
   document.querySelector("#compact-btn")?.addEventListener("click", toggleCompact);
-  document.querySelector("#compact-close")?.addEventListener("click", () => {
-    if (window.electronAPI?.close) window.electronAPI.close();
-    else setCompact(false);
-  });
-  document.querySelector("#compact-min")?.addEventListener("click", () => {
-    if (window.electronAPI?.minimize) window.electronAPI.minimize();
-    else fetch("/api/window/minimize", { method: "POST" }).catch(() => {});
-  });
+  document.querySelector("#compact-close")?.addEventListener("click", () => setCompact(false));
+  document.querySelector("#compact-min")?.addEventListener("click", () => postWindow("minimize"));
   document.querySelector("#compact-expand")?.addEventListener("click", toggleFullscreen);
-  document.querySelector("#compact-settings")?.addEventListener("click", () => setCompact(false));
+  document.querySelector("#win-min")?.addEventListener("click", () => postWindow("minimize"));
+  document.querySelector("#win-close")?.addEventListener("click", () => postWindow("close"));
 
   const audioPopup = document.querySelector("#audio-popup");
-  const compactMute = document.querySelector("#compact-mute");
-  const closePopup = () => {
+  const openAudio = async (e) => {
+    e?.preventDefault?.();
+    await refreshAirPlayUi();
+    if (audioPopup) audioPopup.hidden = false;
+  };
+  document.querySelector("#compact-audio")?.addEventListener("click", openAudio);
+  document.querySelector("#open-audio")?.addEventListener("click", openAudio);
+  const closeAudio = () => {
     if (audioPopup) audioPopup.hidden = true;
   };
-
-  compactMute?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (audioPopup) {
-      audioPopup.hidden = !audioPopup.hidden;
-    }
-  });
-
-  document.querySelector("#audio-popup-close")?.addEventListener("click", closePopup);
-  document.querySelector("#audio-popup-ok")?.addEventListener("click", closePopup);
+  document.querySelector("#audio-popup-close")?.addEventListener("click", closeAudio);
+  document.querySelector("#audio-popup-ok")?.addEventListener("click", closeAudio);
   document.addEventListener("click", (e) => {
-    if (audioPopup && !audioPopup.hidden && !e.target.closest("#audio-popup, #compact-mute")) {
-      closePopup();
+    if (audioPopup && !audioPopup.hidden && !e.target.closest("#audio-popup, #compact-audio")) {
+      closeAudio();
     }
   });
+  setInterval(refreshAirPlayUi, 4000);
+  refreshAirPlayUi();
 
-  // Poll AirPlay connection status to update audio icon
-  const updateAirPlayStatus = async () => {
-    try {
-      const res = await fetch("/api/airplay/status");
-      const data = await res.json();
-      if (data.connected) {
-        compactMute?.classList.add("is-connected");
-        if (compactMute) compactMute.title = "Âm thanh: Đang phát qua Pane Audio";
-      } else {
-        compactMute?.classList.remove("is-connected");
-        if (compactMute) compactMute.title = "Chưa kết nối âm thanh (Bấm để xem hướng dẫn)";
-      }
-    } catch (_) {}
-  };
-  setInterval(updateAirPlayStatus, 2500);
-  updateAirPlayStatus();
-
-  document.querySelector("#compact-back")?.addEventListener("click", () => gesture("notifications"));
-  document.querySelector("#compact-home")?.addEventListener("click", () => gesture("home"));
-  document.querySelector("#compact-switcher")?.addEventListener("click", () => gesture("switcher"));
-  document.querySelector("#compact-restart")?.addEventListener("click", () => restartMirror());
-
-  document.querySelector("#win-min")?.addEventListener("click", () => {
-    if (window.electronAPI?.minimize) window.electronAPI.minimize();
-    else fetch("/api/window/minimize", { method: "POST" }).catch(() => {});
-  });
-  document.querySelector("#win-close")?.addEventListener("click", () => {
-    if (window.electronAPI?.close) window.electronAPI.close();
-    else fetch("/api/window/close", { method: "POST" }).catch(() => {});
-  });
-
-  const setupDrag = (el) => {
+  const startDrag = (el) => {
     if (!el) return;
     el.addEventListener("mousedown", (e) => {
-      if (e.target.closest("button, a, input, select, textarea")) return;
-      if (e.button === 0) {
-        fetch("/api/window/drag", { method: "POST" }).catch(() => {});
-      }
+      if (e.button !== 0 || e.target.closest("button, a, input, select, textarea")) return;
+      postWindow("drag");
     });
   };
-  setupDrag(document.querySelector(".bar"));
-  setupDrag(document.querySelector("#compact-bar"));
+  document.querySelectorAll(".bar-drag").forEach(startDrag);
 
   kbToggle.addEventListener("click", () => setKeyboard(!window.handsetKeyboardOn));
   setKeyboard(true);

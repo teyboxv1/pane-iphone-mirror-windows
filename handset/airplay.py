@@ -1,4 +1,4 @@
-"""Embedded AirPlay Audio Receiver for Windows."""
+"""Embedded AirPlay audio receiver (Shairport4w) for Windows."""
 
 from __future__ import annotations
 
@@ -11,27 +11,36 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 _PROCESS: subprocess.Popen | None = None
+_ATEXIT_REGISTERED = False
+RAOP_PORT = 5000
+
+_SHAIRPORT_NAME = "shairport.exe"
 
 
 def _find_shairport_bin() -> Path | None:
-    candidates = []
+    candidates: list[Path] = []
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        candidates.append(Path(sys._MEIPASS) / "handset" / "bin" / "shairport.exe")
+        candidates.append(Path(sys._MEIPASS) / "handset" / "bin" / _SHAIRPORT_NAME)
+    here = Path(__file__).resolve().parent
     candidates.extend(
         [
-            Path(__file__).resolve().parent / "bin" / "shairport.exe",
-            Path(sys.executable).resolve().parent / "handset" / "bin" / "shairport.exe",
-            Path.cwd() / "handset" / "bin" / "shairport.exe",
+            here / "bin" / _SHAIRPORT_NAME,
+            Path(sys.executable).resolve().parent / "handset" / "bin" / _SHAIRPORT_NAME,
+            Path.cwd() / "handset" / "bin" / _SHAIRPORT_NAME,
         ]
     )
-    for p in candidates:
-        if p.is_file():
-            return p
+    for path in candidates:
+        if path.is_file():
+            return path
     return None
 
 
+def airplay_available() -> bool:
+    return _find_shairport_bin() is not None
+
+
 def configure_registry() -> None:
-    """Pre-configure Shairport4w registry for silent background execution as 'Pane Audio'."""
+    """Best-effort Shairport4w registry as 'Pane Audio'."""
     try:
         import winreg
 
@@ -42,20 +51,19 @@ def configure_registry() -> None:
         winreg.SetValueEx(key, "TrayTrackInfo", 0, winreg.REG_SZ, "no")
         winreg.SetValueEx(key, "InfoPanel", 0, winreg.REG_SZ, "no")
         winreg.CloseKey(key)
-        logger.info("Configured Shairport4w registry as 'Pane Audio'")
-    except Exception as e:
-        logger.warning("Could not set Shairport4w registry: %s", e)
+        logger.info("Configured Shairport4w registry as Pane Audio")
+    except Exception as error:
+        logger.warning("Could not set Shairport4w registry: %s", error)
 
 
 def start_airplay_receiver() -> bool:
-    """Start embedded AirPlay Audio receiver in the background."""
-    global _PROCESS
-    if _PROCESS and _PROCESS.poll() is None:
+    global _PROCESS, _ATEXIT_REGISTERED
+    if _PROCESS is not None and _PROCESS.poll() is None:
         return True
 
     exe = _find_shairport_bin()
-    if not exe:
-        logger.warning("AirPlay receiver binary not found")
+    if exe is None:
+        logger.warning("AirPlay receiver binary not found (expected handset/bin/%s)", _SHAIRPORT_NAME)
         return False
 
     configure_registry()
@@ -66,27 +74,28 @@ def start_airplay_receiver() -> bool:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        logger.info("AirPlay Audio receiver started (PID %d) as 'Pane Audio'", _PROCESS.pid)
-        atexit.register(stop_airplay_receiver)
+        logger.info("AirPlay audio receiver started (PID %s) as Pane Audio", _PROCESS.pid)
+        if not _ATEXIT_REGISTERED:
+            atexit.register(stop_airplay_receiver)
+            _ATEXIT_REGISTERED = True
         return True
-    except Exception as e:
-        logger.error("Failed to start AirPlay receiver: %s", e)
+    except Exception as error:
+        logger.error("Failed to start AirPlay receiver: %s", error)
+        _PROCESS = None
         return False
 
 
 def is_airplay_connected() -> bool:
-    """Return True if an iPhone is currently connected and streaming audio to Shairport."""
     global _PROCESS
-    if not _PROCESS or _PROCESS.poll() is not None:
+    if _PROCESS is None or _PROCESS.poll() is not None:
         return False
     try:
         import psutil
 
-        p = psutil.Process(_PROCESS.pid)
-        for conn in p.connections():
-            if conn.status == "ESTABLISHED" and getattr(conn.laddr, "port", None) == 5000:
-                return True
-            if getattr(conn, "raddr", None) and getattr(conn, "type", None) == psutil.SOCK_DGRAM:
+        proc = psutil.Process(_PROCESS.pid)
+        for conn in proc.net_connections(kind="tcp"):
+            status = conn.status
+            if status in (psutil.CONN_ESTABLISHED, "ESTABLISHED") and getattr(conn.laddr, "port", None) == RAOP_PORT:
                 return True
     except Exception:
         pass
@@ -94,17 +103,27 @@ def is_airplay_connected() -> bool:
 
 
 def stop_airplay_receiver() -> None:
-    """Stop the AirPlay Audio receiver."""
     global _PROCESS
-    if _PROCESS and _PROCESS.poll() is None:
-        try:
-            _PROCESS.terminate()
-            _PROCESS.wait(timeout=2)
-            logger.info("AirPlay Audio receiver stopped")
-        except Exception:
-            try:
-                _PROCESS.kill()
-            except Exception:
-                pass
+    if _PROCESS is None or _PROCESS.poll() is not None:
         _PROCESS = None
+        return
+    try:
+        _PROCESS.terminate()
+        _PROCESS.wait(timeout=2)
+        logger.info("AirPlay audio receiver stopped")
+    except Exception:
+        try:
+            _PROCESS.kill()
+        except Exception:
+            pass
+    _PROCESS = None
 
+
+def airplay_status() -> dict:
+    available = airplay_available()
+    running = _PROCESS is not None and _PROCESS.poll() is None
+    return {
+        "available": available,
+        "running": running,
+        "connected": is_airplay_connected() if running else False,
+    }

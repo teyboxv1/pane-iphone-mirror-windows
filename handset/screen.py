@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import threading
 
-from handset.device import developer_mode_enabled
+from handset.device import developer_mode_enabled, product_version
 from handset.mux import MuxError, list_devices
 from handset.wifi import wifi_paired_udids, wifi_tunnel
 
@@ -21,9 +21,26 @@ DEVELOPER_MODE_MESSAGE = (
     "unlock it, tap Turn On, then press Show screen again."
 )
 
+MIN_IOS_MAJOR_FOR_VIDEO = 27
+
+IOS_VIDEO_VERSION_MESSAGE = (
+    "Live video mirroring needs iOS 27 or later. This iPhone does not send a display video "
+    "stream on older iOS — control can still work, but the preview stays black. Update to iOS 27+ "
+    "for a picture."
+)
+
 VIEW_URL = "http://127.0.0.1:8766/"
 _LOCK = threading.Lock()
-_STATE = {"phase": "idle", "udid": None, "url": None, "error": None, "note": None, "transport": None}
+_STATE = {
+    "phase": "idle",
+    "udid": None,
+    "url": None,
+    "error": None,
+    "note": None,
+    "transport": None,
+    "productVersion": None,
+    "iosMajor": None,
+}
 
 
 def screen_status() -> dict:
@@ -71,14 +88,48 @@ def start_screen(udid: str | None, transport: str = "auto") -> dict:
         return _set(phase="error", udid=chosen, url=None, error="The iPhone is not on the cable. Plug it in or choose Wi-Fi.")
     if transport == "wifi" and chosen not in wifi:
         return _set(phase="error", udid=chosen, url=None, error="Set up Wi-Fi once with the cable plugged in.")
+    if transport == "wifi" and chosen in usb:
+        return _set(
+            phase="error",
+            udid=chosen,
+            url=None,
+            error=(
+                "The iPhone is still plugged in, so it is not announcing itself on Wi-Fi. "
+                "Choose Cable and press Start mirroring. For Wi-Fi, unplug the cable, keep the phone unlocked "
+                "on the same Wi-Fi, then start again."
+            ),
+            transport="wifi",
+        )
     if transport == "usb" and developer_mode_enabled(chosen) is False:
         return _set(phase="error", udid=chosen, url=None, error=DEVELOPER_MODE_MESSAGE)
+
+    product_ver = product_version(chosen) if chosen in usb else None
+    ios_major = _parse_ios_major(product_ver)
+    if ios_major is not None and ios_major < MIN_IOS_MAJOR_FOR_VIDEO:
+        return _set(
+            phase="error",
+            udid=chosen,
+            url=None,
+            error=IOS_VIDEO_VERSION_MESSAGE,
+            transport=transport,
+            productVersion=product_ver,
+            iosMajor=ios_major,
+        )
 
     with _LOCK:
         if _STATE["phase"] in {"starting", "running"} and _STATE["udid"] == chosen:
             return dict(_STATE)
         note = "Looking for the iPhone on Wi-Fi…" if transport == "wifi" else None
-        _STATE.update(phase="starting", udid=chosen, url=None, error=None, note=note, transport=transport)
+        _STATE.update(
+            phase="starting",
+            udid=chosen,
+            url=None,
+            error=None,
+            note=note,
+            transport=transport,
+            productVersion=product_ver,
+            iosMajor=ios_major,
+        )
     threading.Thread(target=_run, args=(chosen, transport), name="handset-screen", daemon=True).start()
     return screen_status()
 
@@ -157,6 +208,17 @@ def _usb_udids() -> list[str]:
         return []
 
 
+def _parse_ios_major(version: str | None) -> int | None:
+    if not version:
+        return None
+    token = version.strip().split("-", 1)[0].split(" ", 1)[0]
+    head = token.split(".", 1)[0]
+    try:
+        return int(head)
+    except ValueError:
+        return None
+
+
 def _only_udid(usb: list[str] | None = None, wifi: list[str] | None = None, transport: str = "auto") -> str | None:
     usb = _usb_udids() if usb is None else usb
     wifi = wifi_paired_udids() if wifi is None else wifi
@@ -176,6 +238,9 @@ def _set(**values) -> dict:
 def _plain(error: Exception) -> str:
     text = str(error).strip() or type(error).__name__
     name = type(error).__name__
+    lower = text.lower()
+    if "ios 27" in lower or "screen streaming isn't possible" in lower or "does not send" in lower:
+        return IOS_VIDEO_VERSION_MESSAGE
     if name == "WifiNotFoundError":
         return text
     if name in {"ConnectionFailedToUsbmuxdError", "MuxError"} or "27015" in text or "usbmux" in text.lower():

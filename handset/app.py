@@ -24,9 +24,17 @@ PORT = int(os.environ.get("PANE_PORT", PORT))
 URL = f"http://{HOST}:{PORT}/"
 DATA_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Pane"
 
+BROWSERS = (
+    Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Google/Chrome/Application/chrome.exe",
+    Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Google/Chrome/Application/chrome.exe",
+    Path(os.environ.get("LOCALAPPDATA", "")) / "Google/Chrome/Application/chrome.exe",
+    Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Microsoft/Edge/Application/msedge.exe",
+    Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Microsoft/Edge/Application/msedge.exe",
+)
+
 
 def _find_electron() -> tuple[Path, Path] | None:
-    candidates = []
+    candidates: list[Path] = []
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         candidates.append(Path(sys._MEIPASS))
     candidates.extend(
@@ -46,14 +54,6 @@ def _find_electron() -> tuple[Path, Path] | None:
         if cmd.is_file() and desktop_dir.is_dir():
             return cmd, desktop_dir
     return None
-
-BROWSERS = (
-    Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Google/Chrome/Application/chrome.exe",
-    Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Google/Chrome/Application/chrome.exe",
-    Path(os.environ.get("LOCALAPPDATA", "")) / "Google/Chrome/Application/chrome.exe",
-    Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Microsoft/Edge/Application/msedge.exe",
-    Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Microsoft/Edge/Application/msedge.exe",
-)
 
 
 def _setup_logging() -> None:
@@ -79,6 +79,7 @@ def _open_window() -> subprocess.Popen | None:
     if electron_target:
         runner, app_dir = electron_target
         return subprocess.Popen([str(runner), str(app_dir)])
+
     for browser in BROWSERS:
         if browser.is_file():
             # A dedicated profile makes this its own process, so we can tell
@@ -109,7 +110,6 @@ def main() -> None:
     threading.Thread(target=server.serve_forever, name="pane-server", daemon=True).start()
     logging.info("Pane listening on %s", URL)
 
-    # Automatically start embedded AirPlay audio receiver
     start_airplay_receiver()
 
     window = _open_window()
