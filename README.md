@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshot.png" width="900" alt="Pane mirroring an iPhone on Windows">
+  <img src="docs/pane.gif" width="900" alt="Pane mirroring an iPhone on Windows">
 </p>
 
 Pane is iPhone screen mirroring for Windows, a scrcpy for iPhone: the phone's screen on the PC, controlled with the mouse and keyboard, with no jailbreak, no Mac, and no app installed on the phone. Video and input stay on your own computer.
