@@ -41,7 +41,12 @@ let usbConnected = false;
 document.querySelectorAll("[data-transport]").forEach((btn) => {
   btn.addEventListener("click", () => setTransport(btn.dataset.transport));
 });
-wifiPair.addEventListener("click", () => setUpWifi());
+document.querySelectorAll("input[name='transport']").forEach((radio) => {
+  radio.addEventListener("change", (e) => {
+    if (e.target.checked) setTransport(e.target.value);
+  });
+});
+if (wifiPair) wifiPair.addEventListener("click", () => setUpWifi());
 setTransport(transport, false);
 
 function setTransport(value, reload = true) {
@@ -52,6 +57,8 @@ function setTransport(value, reload = true) {
     btn.classList.toggle("is-active", active);
     btn.setAttribute("aria-checked", String(active));
   });
+  const radio = document.querySelector(`input[name='transport'][value='${transport}']`);
+  if (radio) radio.checked = true;
   if (reload) load();
 }
 
@@ -105,6 +112,9 @@ async function load() {
     const state = await getJson("/api/status");
     wifiPaired = state.wifi?.paired || [];
     usbConnected = (state.devices || []).length > 0;
+    if (!usbConnected && wifiPaired.length > 0 && transport === "usb") {
+      setTransport("wifi", false);
+    }
     renderStatus(state);
     renderDevices(state.devices || []);
     renderWifi();
@@ -173,6 +183,14 @@ function renderStatus(state) {
 
 function renderDevices(devices) {
   devicesEl.replaceChildren();
+  if (devices.length === 0 && wifiPaired.length > 0) {
+    devices = wifiPaired.map((udid) => ({
+      udid,
+      name: "iPhone (Wi‑Fi)",
+      model: "Paired",
+      connection_type: "Wi‑Fi",
+    }));
+  }
   if (devices.length === 0) {
     const li = document.createElement("li");
     li.className = "empty";
@@ -187,6 +205,7 @@ function renderDevices(devices) {
   devices.forEach((dev) => {
     const li = document.createElement("li");
     li.className = "device-item";
+    if (dev.udid === selectedUdid) li.classList.add("selected");
     const name = document.createElement("p");
     name.className = "device-name";
     name.textContent = dev.name || "iPhone";
@@ -211,7 +230,13 @@ async function selectDevice(udid) {
     renderDetail(dev);
   } catch (error) {
     detail.hidden = false;
-    detail.textContent = error.message;
+    detail.replaceChildren();
+    const dl = document.createElement("dl");
+    dl.className = "kv";
+    addRow(dl, "Name", "iPhone (Wi-Fi)");
+    addRow(dl, "UDID", udid);
+    addRow(dl, "Connection", "Wi-Fi");
+    detail.appendChild(dl);
   }
 }
 
