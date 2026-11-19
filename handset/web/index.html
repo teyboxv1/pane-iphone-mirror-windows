@@ -24,8 +24,8 @@
         </div>
       </div>
       <nav class="bar-actions">
-        <button type="button" class="ghost" id="toggle-compact" title="Compact window layout">Compact</button>
-        <button type="button" class="ghost" id="open-audio" title="AirPlay audio to PC">Audio</button>
+        <button type="button" class="ghost" id="toggle-compact" title="Thu nhỏ giao diện">Thu nhỏ</button>
+        <button type="button" class="ghost" id="open-audio" title="Phát âm thanh AirPlay sang PC">Audio</button>
         <button type="button" class="ghost" id="toggle-guide" aria-expanded="false" aria-controls="run-guide">How to run</button>
         <button type="button" class="ghost" id="refresh" title="Refresh connection">Refresh</button>
         <button type="button" class="ghost ghost-icon" id="win-min" title="Minimize window">−</button>
@@ -36,29 +36,61 @@
     <main class="workspace" id="workspace">
       <div class="mirror-split">
         <section class="mirror-pane" aria-label="iPhone screen">
-          <div class="compact-bar bar-drag pywebview-drag-region" id="compact-bar" hidden>
+          <div class="compact-bar bar-drag pywebview-drag-region" id="compact-bar">
             <div class="compact-traffic">
-              <button type="button" class="traffic-dot dot-red" id="compact-close" title="Exit compact layout"></button>
-              <button type="button" class="traffic-dot dot-yellow" id="compact-min" title="Minimize window"></button>
-              <button type="button" class="traffic-dot dot-green" id="compact-expand" title="Phone full screen"></button>
+              <button type="button" class="traffic-dot dot-red" id="compact-close" title="Đóng cửa sổ"></button>
+              <button type="button" class="traffic-dot dot-yellow" id="compact-min" title="Thu nhỏ cửa sổ"></button>
+              <button type="button" class="traffic-dot dot-green" id="compact-expand" title="Toàn màn hình"></button>
             </div>
-            <span class="compact-title" id="compact-device-name">iPhone</span>
-            <button type="button" class="compact-audio-btn" id="compact-audio" title="AirPlay audio to PC">🔊</button>
+            <div class="compact-title" id="compact-title">
+              <span class="compact-dot"></span>
+              <span id="compact-device-name">iPhone</span>
+            </div>
+            <div class="compact-actions">
+              <button type="button" class="compact-btn is-muted" id="compact-mute" title="Âm thanh (AirPlay)">
+                <svg class="icon-mute" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+                <svg class="icon-sound" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+              </button>
+              <button type="button" class="compact-btn" id="compact-back" title="Thông báo (Notifications)">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
+              </button>
+              <button type="button" class="compact-btn" id="compact-home" title="Màn hình chính (Home)">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+              </button>
+              <button type="button" class="compact-btn" id="compact-switcher" title="Chuyển ứng dụng (App switcher)">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="13" height="13" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
+              </button>
+              <button type="button" class="compact-btn" id="compact-restart" title="Tải lại màn hình">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
+              </button>
+              <button type="button" class="compact-btn" id="compact-settings" title="Mở rộng giao diện">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+              </button>
+            </div>
           </div>
 
           <div class="audio-popup" id="audio-popup" hidden>
             <div class="audio-popup-content">
               <div class="audio-popup-header">
-                <span class="audio-popup-title">Play audio on your PC</span>
+                <span class="audio-popup-title">🔊 Phát âm thanh sang PC</span>
                 <button type="button" class="audio-popup-close" id="audio-popup-close" aria-label="Close">✕</button>
               </div>
               <div class="audio-popup-body">
-                <p class="audio-step"><span class="step-num">1</span> Open <strong>Control Center</strong> on the iPhone.</p>
-                <p class="audio-step"><span class="step-num">2</span> Tap the <strong>AirPlay</strong> icon on the media card.</p>
-                <p class="audio-step"><span class="step-num">3</span> Choose <strong>Pane Audio</strong> as the output.</p>
+                <div class="audio-step">
+                  <span class="step-num">1</span>
+                  <span>Vuốt mở <strong>Trung tâm điều khiển</strong> trên iPhone.</span>
+                </div>
+                <div class="audio-step">
+                  <span class="step-num">2</span>
+                  <span>Chạm vào biểu tượng <strong>AirPlay</strong> ở ô phát nhạc.</span>
+                </div>
+                <div class="audio-step">
+                  <span class="step-num">3</span>
+                  <span>Chọn <strong>Pane Audio</strong> làm đầu ra âm thanh.</span>
+                </div>
               </div>
               <p class="audio-popup-note fine" id="audio-popup-note" hidden></p>
-              <button type="button" class="primary audio-popup-ok" id="audio-popup-ok">Got it</button>
+              <button type="button" class="audio-popup-btn" id="audio-popup-ok">Đã hiểu</button>
             </div>
           </div>
 
@@ -183,7 +215,7 @@
                 <button type="button" class="ctl ctl-icon" id="rotate-ccw" title="Rotate counter-clockwise">↺</button>
                 <button type="button" class="ctl ctl-icon" id="rotate-cw" title="Rotate clockwise">↻</button>
               </div>
-              <button type="button" class="ctl ctl-full" id="compact-btn" title="Compact window layout">Compact window</button>
+              <button type="button" class="ctl ctl-full" id="compact-btn" title="Thu nhỏ giao diện">🗗 Thu nhỏ</button>
               <button type="button" class="ctl ctl-full" id="fullscreen" title="Full screen touch view (Esc to exit)">⛶ Full screen</button>
             </div>
           </section>

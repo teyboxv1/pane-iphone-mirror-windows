@@ -57,11 +57,15 @@ function setTransport(value, reload = true) {
 
 function renderWifi() {
   const ready = selectedUdid ? wifiPaired.includes(selectedUdid) : wifiPaired.length > 0;
-  wifiState.textContent = ready ? "✓ Wi‑Fi ready" : "Wi‑Fi not set up";
-  wifiState.classList.toggle("ok", ready);
-  wifiPair.hidden = ready;
-  wifiPair.disabled = !usbConnected;
-  wifiPair.title = usbConnected ? "One-time setup over the cable" : "Plug in the cable once to set up Wi‑Fi";
+  if (wifiState) {
+    wifiState.textContent = ready ? "✓ Wi‑Fi ready" : "Wi‑Fi not set up";
+    wifiState.classList.toggle("ok", ready);
+  }
+  if (wifiPair) {
+    wifiPair.hidden = ready;
+    wifiPair.disabled = !usbConnected;
+    wifiPair.title = usbConnected ? "One-time setup over the cable" : "Plug in the cable once to set up Wi‑Fi";
+  }
 }
 
 async function setUpWifi() {
@@ -469,44 +473,48 @@ function postWindow(action, size = {}) {
 }
 
 function setCompact(enable) {
-  const on = document.body.classList.toggle("is-compact", enable);
-  document.documentElement.classList.toggle("is-compact", on);
-  const toggleCompact = document.querySelector("#toggle-compact");
+  const isCompact = document.body.classList.toggle("is-compact", enable);
+  document.documentElement.classList.toggle("is-compact", isCompact);
+  const toggleBtn = document.querySelector("#toggle-compact");
   const compactBtn = document.querySelector("#compact-btn");
-  const compactBar = document.querySelector("#compact-bar");
-  if (toggleCompact) {
-    toggleCompact.textContent = on ? "Expanded" : "Compact";
-    toggleCompact.title = on ? "Return to full layout" : "Compact window layout";
+  if (toggleBtn) {
+    toggleBtn.textContent = isCompact ? "Mở rộng" : "Thu nhỏ";
+    toggleBtn.title = isCompact ? "Mở rộng giao diện" : "Thu nhỏ giao diện";
   }
   if (compactBtn) {
-    compactBtn.textContent = on ? "Expanded layout" : "Compact window";
+    compactBtn.textContent = isCompact ? "🗖 Mở rộng" : "🗗 Thu nhỏ";
+    compactBtn.title = isCompact ? "Mở rộng giao diện" : "Thu nhỏ giao diện";
   }
-  if (compactBar) compactBar.hidden = !on;
-  const size = on ? COMPACT_SIZE : STANDARD_SIZE;
+  const size = isCompact ? COMPACT_SIZE : STANDARD_SIZE;
+  if (window.electronAPI?.resize) {
+    window.electronAPI.resize(size.width, size.height);
+  }
   postWindow("resize", size);
+  try {
+    window.resizeTo(size.width, size.height);
+  } catch (_) {}
 }
 
 async function refreshAirPlayUi() {
-  const btn = document.querySelector("#compact-audio");
+  const compactMute = document.querySelector("#compact-mute");
   const note = document.querySelector("#audio-popup-note");
-  if (!btn) return;
   try {
     const data = await getJson("/api/airplay/status");
-    btn.classList.toggle("is-connected", Boolean(data.connected));
-    btn.classList.toggle("is-unavailable", !data.available);
-    if (!data.available) {
-      btn.title = "AirPlay receiver not installed (add handset/bin/shairport.exe)";
-      if (note) {
-        note.hidden = false;
-        note.textContent =
-          "Pane Audio is not bundled in this build. Place Shairport4w as handset/bin/shairport.exe to enable it.";
+    if (compactMute) {
+      compactMute.classList.toggle("is-connected", Boolean(data.connected));
+      if (!data.available) {
+        compactMute.title = "Chưa có Pane Audio (thêm handset/bin/shairport.exe)";
+        if (note) {
+          note.hidden = false;
+          note.textContent = "Pane Audio chưa được cài đặt. Thêm shairport.exe vào handset/bin để kích hoạt.";
+        }
+      } else if (data.connected) {
+        compactMute.title = "Âm thanh: Đang phát qua Pane Audio";
+        if (note) note.hidden = true;
+      } else {
+        compactMute.title = "Chưa kết nối âm thanh (Bấm để xem hướng dẫn)";
+        if (note) note.hidden = true;
       }
-    } else if (data.connected) {
-      btn.title = "Audio streaming via Pane Audio";
-      if (note) note.hidden = true;
-    } else {
-      btn.title = "Set up AirPlay audio (click for steps)";
-      if (note) note.hidden = true;
     }
   } catch (_) {}
 }
@@ -515,45 +523,76 @@ function wireRemoteControls() {
   const toggleCompact = () => setCompact(!document.body.classList.contains("is-compact"));
   document.querySelector("#toggle-compact")?.addEventListener("click", toggleCompact);
   document.querySelector("#compact-btn")?.addEventListener("click", toggleCompact);
-  document.querySelector("#compact-close")?.addEventListener("click", () => setCompact(false));
-  document.querySelector("#compact-min")?.addEventListener("click", () => postWindow("minimize"));
+  document.querySelector("#compact-close")?.addEventListener("click", () => {
+    if (window.electronAPI?.close) window.electronAPI.close();
+    else postWindow("close");
+  });
+  document.querySelector("#compact-min")?.addEventListener("click", () => {
+    if (window.electronAPI?.minimize) window.electronAPI.minimize();
+    else postWindow("minimize");
+  });
   document.querySelector("#compact-expand")?.addEventListener("click", toggleFullscreen);
-  document.querySelector("#win-min")?.addEventListener("click", () => postWindow("minimize"));
-  document.querySelector("#win-close")?.addEventListener("click", () => postWindow("close"));
+  document.querySelector("#compact-settings")?.addEventListener("click", () => setCompact(false));
 
   const audioPopup = document.querySelector("#audio-popup");
-  const openAudio = async (e) => {
+  const compactMute = document.querySelector("#compact-mute");
+  const closePopup = () => {
+    if (audioPopup) audioPopup.hidden = true;
+  };
+
+  compactMute?.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    await refreshAirPlayUi();
+    if (audioPopup) {
+      audioPopup.hidden = !audioPopup.hidden;
+    }
+  });
+
+  document.querySelector("#open-audio")?.addEventListener("click", async (e) => {
     e?.preventDefault?.();
     await refreshAirPlayUi();
     if (audioPopup) audioPopup.hidden = false;
-  };
-  document.querySelector("#compact-audio")?.addEventListener("click", openAudio);
-  document.querySelector("#open-audio")?.addEventListener("click", openAudio);
-  const closeAudio = () => {
-    if (audioPopup) audioPopup.hidden = true;
-  };
-  document.querySelector("#audio-popup-close")?.addEventListener("click", closeAudio);
-  document.querySelector("#audio-popup-ok")?.addEventListener("click", closeAudio);
+  });
+
+  document.querySelector("#audio-popup-close")?.addEventListener("click", closePopup);
+  document.querySelector("#audio-popup-ok")?.addEventListener("click", closePopup);
   document.addEventListener("click", (e) => {
-    if (audioPopup && !audioPopup.hidden && !e.target.closest("#audio-popup, #compact-audio")) {
-      closeAudio();
+    if (audioPopup && !audioPopup.hidden && !e.target.closest("#audio-popup, #compact-mute, #open-audio")) {
+      closePopup();
     }
   });
-  setInterval(refreshAirPlayUi, 4000);
+
+  setInterval(refreshAirPlayUi, 3000);
   refreshAirPlayUi();
 
-  const startDrag = (el) => {
+  document.querySelector("#compact-back")?.addEventListener("click", () => gesture("notifications"));
+  document.querySelector("#compact-home")?.addEventListener("click", () => gesture("home"));
+  document.querySelector("#compact-switcher")?.addEventListener("click", () => gesture("switcher"));
+  document.querySelector("#compact-restart")?.addEventListener("click", () => restartMirror());
+
+  document.querySelector("#win-min")?.addEventListener("click", () => {
+    if (window.electronAPI?.minimize) window.electronAPI.minimize();
+    else postWindow("minimize");
+  });
+  document.querySelector("#win-close")?.addEventListener("click", () => {
+    if (window.electronAPI?.close) window.electronAPI.close();
+    else postWindow("close");
+  });
+
+  const setupDrag = (el) => {
     if (!el) return;
     el.addEventListener("mousedown", (e) => {
-      if (e.button !== 0 || e.target.closest("button, a, input, select, textarea")) return;
-      postWindow("drag");
+      if (e.target.closest("button, a, input, select, textarea")) return;
+      if (e.button === 0) {
+        postWindow("drag");
+      }
     });
   };
-  document.querySelectorAll(".bar-drag").forEach(startDrag);
+  setupDrag(document.querySelector(".bar"));
+  setupDrag(document.querySelector("#compact-bar"));
 
   kbToggle.addEventListener("click", () => setKeyboard(!window.handsetKeyboardOn));
   setKeyboard(true);
-  // A focused button would swallow Space and Enter instead of typing them.
   document.addEventListener("pointerup", (e) => {
     const btn = e.target.closest?.("button");
     if (btn) btn.blur();

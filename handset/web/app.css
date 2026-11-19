@@ -793,152 +793,167 @@ kbd {
   cursor: default;
 }
 
-body.is-compact .control-pane {
+/* ==========================================================================
+   Compact Mode
+   ========================================================================== */
+.compact-bar {
+  display: none;
+}
+
+html.is-compact,
+body.is-compact {
+  background: transparent !important;
+  background-image: none !important;
+  overflow: hidden;
+}
+
+body.is-compact .app {
+  min-height: 100vh;
+  background: transparent !important;
+  justify-content: center;
+  align-items: center;
+}
+
+body.is-compact .bar,
+body.is-compact .control-pane,
+body.is-compact .foot,
+body.is-compact #run-guide,
+body.is-compact .stage-meta,
+body.is-compact .stage-note,
+body.is-compact .iphone-key {
   display: none !important;
 }
 
-body.is-compact .mirror-split {
-  grid-template-columns: 1fr;
-  width: min(520px, 100%);
-}
-
-body.is-compact .bar-actions #toggle-compact {
-  color: var(--accent);
-}
-
-body.is-compact #compact-bar {
-  display: flex !important;
-}
-
-.compact-bar {
-  display: none;
+body.is-compact .workspace {
+  padding: 6px 12px;
+  display: flex;
   align-items: center;
-  gap: 10px;
-  width: 100%;
-  max-width: 440px;
-  padding: 8px 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--line);
+  justify-content: center;
+  min-height: 100vh;
+  background: transparent !important;
+}
+
+body.is-compact .mirror-split {
+  width: auto;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  grid-template-columns: none;
+}
+
+body.is-compact .mirror-pane {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  max-height: none;
+}
+
+body.is-compact .compact-bar {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: calc(var(--h) * (71.5 / 146.7));
+  padding: 5px 12px;
+  margin-bottom: 8px;
+  background: #1c1c1f;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  box-shadow: none;
+  user-select: none;
+  z-index: 10;
 }
 
 .compact-traffic {
   display: flex;
+  align-items: center;
   gap: 6px;
 }
 
 .traffic-dot {
-  width: 12px;
-  height: 12px;
-  padding: 0;
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
   border: none;
+  padding: 0;
   cursor: pointer;
+  transition: transform 0.1s, filter 0.15s;
 }
 
-.dot-red { background: #ff5f57; }
-.dot-yellow { background: #febc2e; }
-.dot-green { background: #28c840; }
+.traffic-dot.dot-red { background: #ff5f56; }
+.traffic-dot.dot-yellow { background: #ffbd2e; }
+.traffic-dot.dot-green { background: #27c93f; }
+
+.traffic-dot:hover {
+  filter: brightness(1.2);
+  transform: scale(1.1);
+}
 
 .compact-title {
-  flex: 1;
-  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
   font-weight: 500;
-  color: var(--muted);
-  text-align: center;
+  color: #e1e1e6;
+  white-space: nowrap;
 }
 
-.compact-audio-btn {
-  font: inherit;
-  cursor: pointer;
-  border: none;
-  border-radius: 8px;
-  padding: 4px 8px;
-  background: transparent;
-  color: var(--text);
+.compact-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #32d74b;
+  box-shadow: 0 0 6px rgba(50, 215, 75, 0.7);
 }
 
-.compact-audio-btn.is-connected {
-  color: var(--ok);
+.compact-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
 }
 
-.compact-audio-btn.is-unavailable {
-  opacity: 0.45;
-}
-
-.audio-popup {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
+.compact-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(6px);
-}
-
-.audio-popup[hidden] {
-  display: none !important;
-}
-
-.audio-popup-content {
-  width: min(400px, 100%);
-  padding: 20px;
-  border-radius: var(--radius-lg);
-  background: var(--bg-elevated);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow);
-}
-
-.audio-popup-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.audio-popup-title {
-  font-weight: 600;
-}
-
-.audio-popup-close {
-  font: inherit;
-  cursor: pointer;
-  border: none;
+  padding: 4px 6px;
+  border-radius: 6px;
   background: transparent;
-  color: var(--muted);
-  font-size: 18px;
+  color: #9d9da6;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
 }
 
-.audio-popup-body {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 16px;
-  font-size: 14px;
-  color: var(--muted);
+.compact-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
 }
 
-.audio-step {
-  margin: 0;
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
+body.is-compact .iphone {
+  --h: clamp(400px, calc(100dvh - 60px), 940px);
 }
 
-.audio-step .step-num {
-  margin: 0;
-  flex: none;
+body.is-compact .iphone-rim {
+  background: #1c1c1e;
+  padding: 3px;
+  border-radius: calc(var(--h) * 0.058);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
 }
 
-.audio-popup-ok {
-  width: 100%;
+body.is-compact .iphone-bezel {
+  padding: 2px;
+  background: #000;
+  border-radius: calc(var(--h) * 0.055);
+  box-shadow: none;
 }
 
-.audio-popup-note {
-  margin: 0 0 12px;
-  color: var(--warn);
+body.is-compact .iphone-screen {
+  border-radius: calc(var(--h) * 0.052);
 }
 
 .pywebview-drag-region {
@@ -951,8 +966,130 @@ body.is-compact #compact-bar {
   -webkit-app-region: no-drag;
 }
 
-html.is-compact,
-body.is-compact {
-  background: transparent !important;
-  background-image: none !important;
+/* Audio Popup */
+.audio-popup {
+  position: absolute;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  width: 290px;
+  background: rgba(28, 28, 32, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  animation: popupFadeIn 0.15s ease-out;
+}
+
+@keyframes popupFadeIn {
+  from { opacity: 0; transform: translate(-50%, -6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.audio-popup[hidden] {
+  display: none !important;
+}
+
+.audio-popup-content {
+  width: 100%;
+}
+
+.audio-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.audio-popup-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.audio-popup-close {
+  background: transparent;
+  border: none;
+  color: #8e8e93;
+  font-size: 14px;
+  padding: 2px 6px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.audio-popup-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.audio-popup-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.audio-step {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #d1d1d6;
+}
+
+.audio-step .step-num {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #0a84ff;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.audio-step strong {
+  color: #fff;
+}
+
+.audio-popup-btn {
+  width: 100%;
+  padding: 8px 0;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  background: #0a84ff;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.audio-popup-btn:hover {
+  filter: brightness(1.1);
+}
+
+.audio-popup-note {
+  margin: 0 0 10px;
+  color: var(--warn);
+  font-size: 12px;
+}
+
+/* Sound button states */
+#compact-mute.is-connected {
+  color: #32d74b;
+}
+
+#compact-mute.is-connected .icon-mute {
+  display: none !important;
+}
+
+#compact-mute.is-connected .icon-sound {
+  display: block !important;
 }
