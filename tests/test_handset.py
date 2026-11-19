@@ -50,11 +50,22 @@ class BonjourForwardTests(unittest.IsolatedAsyncioTestCase):
 
 class AirplayTests(unittest.TestCase):
     def test_status_without_binary(self) -> None:
-        status = airplay_status()
-        self.assertIn("available", status)
-        self.assertIn("connected", status)
-        self.assertFalse(status["available"])
-        self.assertFalse(status["connected"])
+        from unittest.mock import patch
+
+        with patch("handset.airplay._find_shairport_bin", return_value=None):
+            status = airplay_status()
+            self.assertIn("available", status)
+            self.assertIn("connected", status)
+            self.assertFalse(status["available"])
+            self.assertFalse(status["connected"])
+
+    def test_status_with_binary(self) -> None:
+        from unittest.mock import patch
+        from pathlib import Path
+
+        with patch("handset.airplay._find_shairport_bin", return_value=Path("shairport.exe")):
+            status = airplay_status()
+            self.assertTrue(status["available"])
 
 
 class WindowActionTests(unittest.TestCase):
