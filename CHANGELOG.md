@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-19
+
+Windows build: Pane 1.0.2.
+
+### Fixes
+
+- Wi-Fi discovery keeps a Windows mobile hotspot. That hotspot is a Wi-Fi Direct adapter with a private address, usually `192.168.137.1`, and it was being skipped with the idle Miracast adapters.
+- Wi-Fi tunnel setup returns the `TunnelProvider` type that pymobiledevice3 11.59 expects, and still returns the older pair on earlier releases.
+
 ## 2026-11-17
 
 Windows build: Pane 1.0.1.
