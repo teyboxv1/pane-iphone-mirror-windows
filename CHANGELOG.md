@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Decode the full HEVC frame on Windows using the encoded dimensions, and map clicks and drags to the device's touch surface after iPad rotation.
+- Use a tablet-shaped frame without an iPhone notch when mirroring an iPad.
+
 ## 2026-11-19
 
 Windows build: Pane 1.0.2.

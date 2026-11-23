@@ -1,2 +1,2 @@
-pymobiledevice3>=11.28
+pymobiledevice3>=11.57,<12
 psutil>=5.9.0

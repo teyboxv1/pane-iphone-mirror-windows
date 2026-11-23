@@ -238,6 +238,7 @@ async function openDevice(udid) {
 
 function renderDetail(device) {
   detail.replaceChildren();
+  phoneShell.classList.toggle("is-tablet", String(device.info?.ProductType ?? "").startsWith("iPad"));
   const title = document.createElement("h3");
   title.textContent = device.info?.DeviceName || "iPhone";
   detail.append(title);

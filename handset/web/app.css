@@ -212,6 +212,10 @@ button:active { transform: scale(0.98); }
   aspect-ratio: 146.7 / 71.5;
 }
 
+.iphone.is-tablet { aspect-ratio: 3 / 4; }
+.iphone.is-tablet.is-landscape { aspect-ratio: 4 / 3; }
+.iphone.is-tablet .iphone-notch { display: none; }
+
 .iphone.is-landscape .iphone-notch {
   top: 50%;
   left: 0;

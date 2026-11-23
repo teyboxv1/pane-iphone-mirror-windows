@@ -154,13 +154,13 @@ def _open_tunnel(udid: str, transport: str):
 
 
 async def _serve(udid: str, transport: str) -> None:
-    from pymobiledevice3.remote.core_device.screen_stream import ScreenStreamServer
+    from handset.stream import PaneStreamServer
     from pymobiledevice3.services.mobile_image_mounter import auto_mount
 
     for attempt in range(2):
         async with _open_tunnel(udid, transport) as rsd:
             if DISPLAY_SERVICE in (rsd.peer_info or {}).get("Services", {}):
-                await _stream(rsd, udid, ScreenStreamServer)
+                await _stream(rsd, udid, PaneStreamServer)
                 return
             if attempt:
                 raise RuntimeError(

@@ -22,7 +22,7 @@ const ZOOM_MAX = 3;
 let pendingFrame = null;
 let rafScheduled = false;
 let lastFrame = null;
-let lastFrameLandscape = null;
+let display = null;
 let frameCount = 0;
 let runGeneration = 0;
 let abortStream = null;
@@ -270,7 +270,7 @@ async function fetchCodecWithRetry() {
         continue;
       }
       const description = Uint8Array.from(atob(info.description), (c) => c.charCodeAt(0));
-      return { codec: info.codec.trim(), description };
+      return { ...info, codec: info.codec.trim(), description };
     } catch (err) {
       lastErr = err.message || String(err);
     }
@@ -278,10 +278,29 @@ async function fetchCodecWithRetry() {
   throw new Error(lastErr || "codec unreachable");
 }
 
+function captureRotation(f) {
+  if (!display) return 0;
+  const sideways = Math.abs(display.rotation % 180) === 90;
+  const nativeLandscape = display.width > display.height;
+  const frameLandscape = f.displayWidth > f.displayHeight;
+  return sideways && nativeLandscape !== frameLandscape ? 0 : display.rotation;
+}
+
 function drawFrame(f) {
-  const sideways = Math.abs(visualRotation % 180) === 90;
-  const fw = f.displayWidth;
-  const fh = f.displayHeight;
+  const capture = captureRotation(f);
+  const captureSideways = Math.abs(capture % 180) === 90;
+  const rotation = capture + visualRotation;
+  const sideways = Math.abs(rotation % 180) === 90;
+  let fw = f.displayWidth;
+  let fh = f.displayHeight;
+  if (display) {
+    const swap = Math.abs(display.rotation % 180) === 90 && !captureSideways;
+    const width = swap ? display.height : display.width;
+    const height = swap ? display.width : display.height;
+    // The encoder pads the native display to a coding-block boundary.
+    if (fw >= width && fw - width < 32) fw = width;
+    if (fh >= height && fh - height < 32) fh = height;
+  }
   const targetW = sideways ? fh : fw;
   const targetH = sideways ? fw : fh;
   if (targetW !== canvas.width || targetH !== canvas.height) {
@@ -295,8 +314,8 @@ function drawFrame(f) {
   const fpH = sideways ? dstW : dstH;
   ctx.save();
   ctx.translate(dstW / 2, dstH / 2);
-  if (visualRotation) ctx.rotate((visualRotation * Math.PI) / 180);
-  ctx.drawImage(f, -fpW / 2, -fpH / 2, fpW, fpH);
+  if (rotation) ctx.rotate((rotation * Math.PI) / 180);
+  ctx.drawImage(f, 0, 0, fw, fh, -fpW / 2, -fpH / 2, fpW, fpH);
   ctx.restore();
 }
 
@@ -305,14 +324,9 @@ function drawPending() {
   const f = pendingFrame;
   pendingFrame = null;
   if (!f) return;
-  const landscape = f.displayWidth > f.displayHeight;
-  if (lastFrameLandscape !== null && landscape !== lastFrameLandscape && visualRotation !== 0) {
-    visualRotation = 0;
-  }
-  lastFrameLandscape = landscape;
   try {
     drawFrame(f);
-    if (frameCount === 1) setStatus("Live", "ok");
+    if (!lastFrame) setStatus("Live", "ok");
   } catch (_) {}
   if (lastFrame && lastFrame !== f) {
     try {
@@ -344,11 +358,17 @@ async function run(generation) {
     }
   }, 1000);
 
-  const { codec, description } = await fetchCodecWithRetry();
+  const info = await fetchCodecWithRetry();
   if (generation !== runGeneration) return;
 
-  const decoderConfig = { codec, description, optimizeForLatency: true };
-  const support = await VideoDecoder.isConfigSupported({ codec, description });
+  display = info.display ?? null;
+  function videoConfig({ codec, description, codedWidth, codedHeight }) {
+    const config = { codec, description, optimizeForLatency: true };
+    if (codedWidth > 0 && codedHeight > 0) Object.assign(config, { codedWidth, codedHeight });
+    return config;
+  }
+  let decoderConfig = videoConfig(info);
+  const support = await VideoDecoder.isConfigSupported(decoderConfig);
   if (!support.supported) {
     setStatus("This browser cannot decode the iPhone video stream.", "warn");
     return;
@@ -360,6 +380,10 @@ async function run(generation) {
   const buildDecoder = () =>
     new VideoDecoder({
       output: (frame) => {
+        if (generation !== runGeneration) {
+          frame.close();
+          return;
+        }
         if (pendingFrame) {
           try {
             pendingFrame.close();
@@ -437,6 +461,25 @@ async function run(generation) {
       const type = buf[4];
       const data = buf.slice(5, 4 + len);
       buf = buf.subarray(4 + len);
+
+      if (type === 3 || type === 4) {
+        const config = JSON.parse(new TextDecoder().decode(data));
+        if (type === 4) {
+          if (display) display = { ...display, rotation: config.rotation };
+          releaseActive();
+          continue;
+        }
+        display = config.display ?? null;
+        config.description = Uint8Array.from(atob(config.description), (c) => c.charCodeAt(0));
+        decoderConfig = videoConfig(config);
+        decoder.close();
+        decoder = buildDecoder();
+        decoder.configure(decoderConfig);
+        needsResync = false;
+        gotKey = false;
+        continue;
+      }
+      if (type !== 0 && type !== 1 && type !== 2) continue;
 
       if (type === 2) {
         try {
