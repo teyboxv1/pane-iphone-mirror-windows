@@ -18,7 +18,7 @@
   <img src="docs/PaneGIF-ezgif.com-optimize.gif" width="900" alt="Pane mirroring an iPhone on Windows">
 </p>
 
-Pane is iPhone screen mirroring for Windows, a scrcpy for iPhone: the phone's screen on the PC, controlled with the mouse and keyboard, with no jailbreak, no Mac, and no app installed on the phone. Video and input stay on your own computer.
+Pane mirrors and controls an iPhone or iPad from Windows with the mouse and keyboard, with no jailbreak, no Mac, and no app installed on the device. Video and input stay on your own computer.
 
 Live video needs **iOS / iPadOS 27 or newer**. On iOS 26 and older the phone can connect, but it sends no picture.
 
@@ -71,7 +71,7 @@ pip install -r requirements.txt
 python -m handset.server
 ```
 
-Open http://127.0.0.1:8765
+Open http://127.0.0.1:8765 in Edge or Chrome, select **Cable**, then click **Start mirroring**. On iPad, the live frame and pointer coordinates follow device rotation.
 
 **Build `Pane.exe`**
 
